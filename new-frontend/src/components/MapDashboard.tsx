@@ -1,10 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { SOSIncident, Volunteer } from '../types';
-import { Maximize2, Minimize2, Crosshair } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 // Fix for default Leaflet icon not showing properly in React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -28,19 +26,48 @@ const criticalIcon = createCustomIcon('#ff3b3b'); // brand-primary
 const moderateIcon = createCustomIcon('#ff9f0a'); // brand-warning
 const volunteerIcon = createCustomIcon('#0a84ff'); // brand-accent
 
-// Component to handle dynamic map zooming based on route or selected marker
-const MapBoundsFitter = ({ route, selectedIncidentCoord }: { route: [number, number][] | null, selectedIncidentCoord: [number, number] | null }) => {
+const collectBoundsPoints = (
+  route: [number, number][] | null,
+  incidentCoord: [number, number] | null,
+  volunteerCoords: [number, number][],
+) => {
+  if (route && route.length > 0) {
+    return route;
+  }
+
+  return [
+    ...(incidentCoord ? [incidentCoord] : []),
+    ...volunteerCoords,
+  ];
+};
+
+// Component to handle dynamic map zooming based on visible markers / route
+const MapBoundsFitter = ({
+  route,
+  selectedIncidentCoord,
+  volunteerCoords,
+}: {
+  route: [number, number][] | null;
+  selectedIncidentCoord: [number, number] | null;
+  volunteerCoords: [number, number][];
+}) => {
   const map = useMap();
-  
+
   useEffect(() => {
-    if (route && route.length > 0) {
-      const bounds = L.latLngBounds(route);
+    // Leaflet can render with clipped tiles until a size recompute happens.
+    map.invalidateSize();
+
+    const points = collectBoundsPoints(route, selectedIncidentCoord, volunteerCoords);
+    if (points.length > 1) {
+      const bounds = L.latLngBounds(points);
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
     } else if (selectedIncidentCoord) {
       map.setView(selectedIncidentCoord, 14, { animate: true });
+    } else if (volunteerCoords[0]) {
+      map.setView(volunteerCoords[0], 14, { animate: true });
     }
-  }, [route, selectedIncidentCoord, map]);
-  
+  }, [route, selectedIncidentCoord, volunteerCoords, map]);
+
   return null;
 };
 
@@ -53,9 +80,12 @@ interface MapDashboardProps {
 
 const MapDashboard: React.FC<MapDashboardProps> = ({ incidents, volunteers, selectedIncident, drawnRoute }) => {
   const defaultCenter: [number, number] = [21.5, 72.0]; // General center for Gujarat/Maharashtra
-  
+
   const selectedIncidentData = incidents.find(inc => inc.id === selectedIncident);
   const selectedIncidentCoord = selectedIncidentData?.coordinates || null;
+  const volunteerCoords = volunteers
+    .map((vol) => vol.coordinates)
+    .filter((coord): coord is [number, number] => Boolean(coord));
 
   return (
     <div className="w-full h-full relative z-0">
@@ -71,7 +101,11 @@ const MapDashboard: React.FC<MapDashboardProps> = ({ incidents, volunteers, sele
         />
         
         {/* Dynamic bounds fitting */}
-        <MapBoundsFitter route={drawnRoute} selectedIncidentCoord={selectedIncidentCoord} />
+        <MapBoundsFitter
+          route={drawnRoute}
+          selectedIncidentCoord={selectedIncidentCoord}
+          volunteerCoords={volunteerCoords}
+        />
 
         {/* Incidents (Red/Orange dots) */}
         {incidents.map((incident) => {

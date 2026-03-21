@@ -505,34 +505,97 @@ function App() {
             <p className="mb-4 text-sm text-slate-300">Admins can assign volunteers and give the final completion decision. Blockchain proof stays hidden from this workspace.</p>
             <div className="space-y-4">
               {requests.length ? (
-                requests.map((request) => (
-                  <RequestView key={request._id} request={request} showChain={false}>
-                    <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                      <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-sm font-semibold text-white">Assign volunteer</p>
-                        <div className="mt-3 grid gap-3">
-                          <input className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm" placeholder="Volunteer name" value={assignDrafts[request._id]?.volunteerName || request.assignedVolunteer?.name || ''} onChange={(e) => setAssignDrafts((c) => ({ ...c, [request._id]: { ...(c[request._id] || {}), volunteerName: e.target.value } }))} />
-                          <input className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm" placeholder="Volunteer wallet" value={assignDrafts[request._id]?.volunteerWallet || request.assignedVolunteer?.wallet || ''} onChange={(e) => setAssignDrafts((c) => ({ ...c, [request._id]: { ...(c[request._id] || {}), volunteerWallet: e.target.value } }))} />
-                          <button type="button" onClick={() => assign(request._id)} className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950">
-                            Assign volunteer
-                          </button>
+                requests.map((request) => {
+                  // A request is auto-assigned when it has a volunteer but no blockchain assign tx
+                  const autoAssigned =
+                    request.status === 'assigned' &&
+                    !!request.assignedVolunteer?.name &&
+                    !request.blockchain?.assignedLogged
+
+                  return (
+                    <RequestView key={request._id} request={request} showChain={false}>
+                      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                        {/* ── Volunteer Assignment Column ── */}
+                        <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                          {autoAssigned ? (
+                            /* Auto-Assigned: show green panel, hide manual inputs */
+                            <div className="space-y-3">
+                              <p className="text-sm font-semibold text-emerald-300 flex items-center gap-2">
+                                <span>🤖</span> Auto Assigned
+                              </p>
+                              <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 space-y-1">
+                                <p className="text-sm font-semibold text-white">
+                                  {request.assignedVolunteer?.name}
+                                </p>
+                                {request.assignedVolunteer?.wallet && (
+                                  <p className="text-xs text-slate-400 font-mono">
+                                    {shortAddress(request.assignedVolunteer.wallet)}
+                                  </p>
+                                )}
+                              </div>
+                              <p className="text-xs text-emerald-400/70">
+                                Nearest available volunteer automatically assigned at submission.
+                              </p>
+                            </div>
+                          ) : request.status === 'pending' ? (
+                            /* No auto-assignment — show alert + manual fallback */
+                            <div className="space-y-3">
+                              <p className="text-sm font-semibold text-rose-300 flex items-center gap-2">
+                                <span>⚠</span> No volunteers available nearby
+                              </p>
+                              <p className="text-xs text-slate-400">Auto-assignment failed. Assign manually:</p>
+                              <div className="grid gap-3">
+                                <input className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm" placeholder="Volunteer name" value={assignDrafts[request._id]?.volunteerName || ''} onChange={(e) => setAssignDrafts((c) => ({ ...c, [request._id]: { ...(c[request._id] || {}), volunteerName: e.target.value } }))} />
+                                <input className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm" placeholder="Volunteer wallet" value={assignDrafts[request._id]?.volunteerWallet || ''} onChange={(e) => setAssignDrafts((c) => ({ ...c, [request._id]: { ...(c[request._id] || {}), volunteerWallet: e.target.value } }))} />
+                                <button type="button" onClick={() => assign(request._id)} className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950">
+                                  Assign volunteer
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Already manually assigned or in other non-pending state */
+                            <div className="space-y-3">
+                              <p className="text-sm font-semibold text-white">Assign volunteer</p>
+                              {request.assignedVolunteer?.name && (
+                                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3">
+                                  <p className="text-sm font-semibold text-cyan-200">
+                                    {request.assignedVolunteer.name}
+                                  </p>
+                                  {request.assignedVolunteer?.wallet && (
+                                    <p className="text-xs text-slate-400 font-mono">
+                                      {shortAddress(request.assignedVolunteer.wallet)}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              <div className="grid gap-3">
+                                <input className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm" placeholder="Volunteer name" value={assignDrafts[request._id]?.volunteerName || request.assignedVolunteer?.name || ''} onChange={(e) => setAssignDrafts((c) => ({ ...c, [request._id]: { ...(c[request._id] || {}), volunteerName: e.target.value } }))} />
+                                <input className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm" placeholder="Volunteer wallet" value={assignDrafts[request._id]?.volunteerWallet || request.assignedVolunteer?.wallet || ''} onChange={(e) => setAssignDrafts((c) => ({ ...c, [request._id]: { ...(c[request._id] || {}), volunteerWallet: e.target.value } }))} />
+                                <button type="button" onClick={() => assign(request._id)} className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950">
+                                  Assign volunteer
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* ── Admin Finalize Column (unchanged) ── */}
+                        <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                          <p className="text-sm font-semibold text-white">Admin final confirmation</p>
+                          <textarea className="mt-3 min-h-24 w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm" placeholder="Admin review note" value={adminNotes[request._id] || ''} onChange={(e) => setAdminNotes((c) => ({ ...c, [request._id]: e.target.value }))} />
+                          <div className="mt-3 flex flex-wrap gap-3">
+                            {verdicts.map((status) => (
+                              <button key={status} type="button" onClick={() => adminFinalize(request, status)} className="rounded-2xl bg-orange-400 px-4 py-3 text-sm font-semibold text-slate-950" disabled={!request.volunteerVerification?.status || request.finalStatus !== 'pending'}>
+                                Finalize {status}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="mt-3 text-xs text-slate-400">If volunteer and admin both say completed, the contract sends {web3.rewardAmountWei ? formatReward(web3.rewardAmountWei) : 'the configured reward'} to the assigned volunteer wallet.</p>
                         </div>
                       </div>
-                      <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-sm font-semibold text-white">Admin final confirmation</p>
-                        <textarea className="mt-3 min-h-24 w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm" placeholder="Admin review note" value={adminNotes[request._id] || ''} onChange={(e) => setAdminNotes((c) => ({ ...c, [request._id]: e.target.value }))} />
-                        <div className="mt-3 flex flex-wrap gap-3">
-                          {verdicts.map((status) => (
-                            <button key={status} type="button" onClick={() => adminFinalize(request, status)} className="rounded-2xl bg-orange-400 px-4 py-3 text-sm font-semibold text-slate-950" disabled={!request.volunteerVerification?.status || request.finalStatus !== 'pending'}>
-                              Finalize {status}
-                            </button>
-                          ))}
-                        </div>
-                        <p className="mt-3 text-xs text-slate-400">If volunteer and admin both say completed, the contract sends {web3.rewardAmountWei ? formatReward(web3.rewardAmountWei) : 'the configured reward'} to the assigned volunteer wallet.</p>
-                      </div>
-                    </div>
-                  </RequestView>
-                ))
+                    </RequestView>
+                  )
+                })
               ) : (
                 <div className="text-sm text-slate-300">No SOS requests yet.</div>
               )}

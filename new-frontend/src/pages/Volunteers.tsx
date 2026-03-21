@@ -12,10 +12,13 @@ import {
   ChevronRight,
   ShieldCheck,
   Activity,
-  UserPlus
+  UserPlus,
+  Loader2,
+  X
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../context/AppContext';
+import { registerVolunteer, fetchVolunteers } from '../api';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -36,29 +39,67 @@ const Volunteers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'All' | 'Active' | 'On-Call' | 'Offline'>('All');
 
-  /* Extract unique volunteers from real SOS data */
-  const volunteers = useMemo<ExtractedVolunteer[]>(() => {
-    const map = new Map<string, ExtractedVolunteer>();
-    for (const req of requests) {
-      const vol = req.assignedVolunteer;
-      if (!vol?.wallet) continue;
-      const key = vol.wallet.toLowerCase();
-      const existing = map.get(key);
-      if (existing) {
-        existing.assignedCount++;
-        if (req.finalStatus === 'completed') existing.completedCount++;
-      } else {
-        map.set(key, {
-          name: vol.name,
-          wallet: vol.wallet,
-          assignedCount: 1,
-          completedCount: req.finalStatus === 'completed' ? 1 : 0,
-          status: 'Active',
-        });
-      }
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  const [formData, setFormData] = useState({ name: '', phone: '', location: '', wallet: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Data from backend DB
+  const [dbVolunteers, setDbVolunteers] = useState<any[]>([]);
+
+  const loadVolunteers = async () => {
+    try {
+      const data = await fetchVolunteers();
+      setDbVolunteers(data || []);
+    } catch (err) {
+      console.error('Failed to load DB volunteers', err);
     }
-    return Array.from(map.values());
-  }, [requests]);
+  };
+
+  React.useEffect(() => {
+    loadVolunteers();
+  }, []);
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      await registerVolunteer(formData);
+      setIsRegisterOpen(false);
+      setFormData({ name: '', phone: '', location: '', wallet: '' });
+      await loadVolunteers(); // Refresh the list
+      alert('Volunteer registered successfully!');
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Failed to register volunteer');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* Combine DB volunteers with real SOS assignment stats */
+  const volunteers = useMemo<ExtractedVolunteer[]>(() => {
+    return dbVolunteers.map((dbVol) => {
+      // Count assignments from real SOS data
+      let assignedCount = 0;
+      let completedCount = 0;
+
+      for (const req of requests) {
+        if (req.assignedVolunteer?.wallet?.toLowerCase() === dbVol.wallet.toLowerCase()) {
+          assignedCount++;
+          if (req.finalStatus === 'completed') completedCount++;
+        }
+      }
+
+      return {
+        name: dbVol.name,
+        wallet: dbVol.wallet,
+        assignedCount,
+        completedCount,
+        status: dbVol.isAvailable ? 'Active' : 'Offline',
+      };
+    });
+  }, [dbVolunteers, requests]);
 
   const filteredVolunteers = volunteers.filter(vol => {
     const matchesSearch = vol.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -82,7 +123,7 @@ const Volunteers = () => {
           <h2 className="text-2xl font-bold tracking-tight">Volunteer Registry</h2>
           <p className="text-xs text-text-secondary font-mono uppercase tracking-widest">Community Response Network Management</p>
         </div>
-        <button className="btn-tactical btn-primary">
+        <button className="btn-tactical btn-primary" onClick={() => setIsRegisterOpen(true)}>
           <UserPlus className="w-4 h-4" />
           <span>Register New Volunteer</span>
         </button>
@@ -230,6 +271,120 @@ const Volunteers = () => {
           </div>
         )}
       </div>
+
+      {/* Registration Modal */}
+      <AnimatePresence>
+        {isRegisterOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              onClick={() => setIsRegisterOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-bg-primary border border-white/10 p-6 rounded-sm shadow-2xl z-50 overflow-hidden"
+            >
+              {/* Decorative top border */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-primary via-brand-secondary to-brand-accent" />
+
+              <div className="flex justify-between items-start mb-6 mt-2">
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                    <UserPlus className="w-5 h-5 text-brand-primary" />
+                    Register Volunteer
+                  </h3>
+                  <p className="text-xs text-text-secondary mt-1 font-mono">Join the rapid response network</p>
+                </div>
+                <button onClick={() => setIsRegisterOpen(false)} className="text-text-secondary hover:text-white transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {error && (
+                <div className="mb-6 p-3 bg-brand-warning/10 border border-brand-warning/30 rounded-sm">
+                  <p className="text-sm font-semibold text-brand-warning">Error</p>
+                  <p className="text-xs text-brand-warning/80 mt-1 leading-relaxed">{error}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-mono tracking-widest text-text-secondary uppercase">Full Name</label>
+                  <input
+                    required
+                    type="text"
+                    value={formData.name}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-brand-primary/50 transition-colors"
+                    placeholder="e.g., Sarah Chen"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-mono tracking-widest text-text-secondary uppercase">Phone Number</label>
+                  <input
+                    required
+                    type="text"
+                    value={formData.phone}
+                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-brand-primary/50 transition-colors"
+                    placeholder="+1 (555) 000-0000"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-mono tracking-widest text-text-secondary uppercase">Rough Location</label>
+                  <input
+                    required
+                    type="text"
+                    value={formData.location}
+                    onChange={e => setFormData({ ...formData, location: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-brand-primary/50 transition-colors"
+                    placeholder="e.g., Downtown Seattle"
+                  />
+                  <p className="text-[10px] text-text-tertiary mt-1">We will automatically geocode this for assignments.</p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-mono tracking-widest text-text-secondary uppercase">Wallet Address</label>
+                  <input
+                    required
+                    type="text"
+                    value={formData.wallet}
+                    onChange={e => setFormData({ ...formData, wallet: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-brand-primary/50 transition-colors font-mono"
+                    placeholder="0x..."
+                  />
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsRegisterOpen(false)}
+                    className="flex-1 px-4 py-2 border border-white/10 hover:bg-white/5 disabled:opacity-50 text-sm font-semibold rounded-sm transition-colors"
+                    disabled={loading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-brand-primary hover:bg-brand-primary/90 text-black font-semibold rounded-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+                    disabled={loading}
+                  >
+                    {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {loading ? 'Registering...' : 'Register'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

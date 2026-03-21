@@ -153,6 +153,16 @@ const sosSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    // Flat coordinates populated silently by geocoding on creation
+    coordinates: {
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+    },
+    // GeoJSON Point for 2dsphere spatial queries (nearest volunteer matching)
+    geoLocation: {
+      type: { type: String, enum: ['Point'], default: 'Point' },
+      coordinates: { type: [Number], default: [0, 0] },
+    },
     priority: {
       type: String,
       default: 'Medium',
@@ -179,6 +189,10 @@ const sosSchema = new mongoose.Schema(
       type: String,
       default: 'pending',
       enum: ['pending', 'assigned', 'volunteer_completed', 'volunteer_fake', 'completed', 'fake', 'disputed'],
+    },
+    autoAssigned: {
+      type: Boolean,
+      default: false,
     },
     role: {
       type: String,
@@ -221,5 +235,8 @@ const sosSchema = new mongoose.Schema(
   },
   { timestamps: true },
 )
+
+// Enable geospatial queries on SOS complaints
+sosSchema.index({ geoLocation: '2dsphere' })
 
 module.exports = mongoose.model('SOS', sosSchema)

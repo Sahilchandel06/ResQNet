@@ -6,10 +6,7 @@ import {
   ShieldCheck,
   Map as MapIcon,
   Settings,
-  Activity,
   LogOut,
-  Bell,
-  Globe
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -20,15 +17,12 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const Sidebar = () => {
-  const { logout } = useApp();
+  const { logout, session } = useApp();
 
   const navItems = [
     { icon: LayoutDashboard, label: 'SOS Feed', path: '/' },
     { icon: MapIcon, label: 'Tactical Map', path: '/map' },
-    { icon: Users, label: 'Volunteers', path: '/volunteers' },
-    { icon: ShieldCheck, label: 'Governance', path: '/governance' },
-    { icon: Globe, label: 'Public Site', path: '/landing' },
-    { icon: Activity, label: 'System Health', path: '/health' },
+    ...(session?.role === 'volunteer' ? [] : [{ icon: Users, label: 'Volunteers', path: '/volunteers' }]),
   ];
 
   return (

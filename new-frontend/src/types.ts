@@ -87,6 +87,12 @@ export interface BlockchainData {
 export interface AssignedVolunteer {
   name: string;
   wallet: string;
+  distanceKm?: number;
+}
+
+export interface Coordinates {
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface VerificationStatus {
@@ -101,6 +107,7 @@ export interface SOSRequest {
   message: string;
   type: string;
   location: string;
+  coordinates?: Coordinates;
   priority: string;
   suspicious: boolean;
   analysisSummary: string;
@@ -113,6 +120,8 @@ export interface SOSRequest {
   volunteerVerification?: VerificationStatus;
   adminVerification?: VerificationStatus;
   blockchain?: BlockchainData;
+  autoAssigned?: boolean;
+  distanceKm?: number;
   createdAt: string;
   updatedAt: string;
 }

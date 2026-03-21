@@ -22,7 +22,10 @@ import {
   Send,
   UserPlus,
   Shield,
-  AlertTriangle
+  AlertTriangle,
+  Bot,
+  CheckCheck,
+  Navigation
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../context/AppContext';
@@ -72,6 +75,30 @@ const statusStyle = (s: string) => {
   }
 };
 
+/** Returns true if this request was auto-assigned, with a heuristic fallback for older records. */
+function isAutoAssigned(req: SOSRequest): boolean {
+  if (typeof req.autoAssigned === 'boolean') {
+    return req.status === 'assigned' && !!req.assignedVolunteer?.name && req.autoAssigned;
+  }
+
+  return (
+    req.status === 'assigned' &&
+    !!req.assignedVolunteer?.name &&
+    !req.blockchain?.assignedLogged
+  );
+}
+
+/** Checks if today (UTC date string). */
+function isToday(dateStr: string): boolean {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
 const SOSFeed = () => {
   const {
     session, requests, myRequests, volunteerRequests,
@@ -103,12 +130,22 @@ const SOSFeed = () => {
     return list;
   }, [session, requests, myRequests, volunteerRequests, filter]);
 
+  /* ── Stats ── */
+  const autoAssignedToday = useMemo(
+    () => requests.filter((r) => isAutoAssigned(r) && isToday(r.createdAt)).length,
+    [requests],
+  );
+  const pendingManual = useMemo(
+    () => requests.filter((r) => r.status === 'pending').length,
+    [requests],
+  );
+
   const stats = useMemo(() => [
     { label: 'Total', value: String(requests.length), icon: Activity, color: 'text-brand-secondary' },
     { label: 'Critical', value: String(requests.filter((r) => r.priority === 'Critical').length), icon: ShieldAlert, color: 'text-brand-primary' },
-    { label: 'Pending', value: String(requests.filter((r) => r.status === 'pending').length), icon: Clock, color: 'text-brand-warning' },
-    { label: 'Resolved', value: String(requests.filter((r) => r.finalStatus === 'completed').length), icon: CheckCircle2, color: 'text-brand-accent' },
-  ], [requests]);
+    { label: 'Auto Assigned', value: String(autoAssignedToday), icon: Bot, color: 'text-green-400' },
+    { label: 'Pending Manual', value: String(pendingManual), icon: Clock, color: 'text-brand-warning' },
+  ], [requests, autoAssignedToday, pendingManual]);
 
   /* ── Handlers ── */
   const handleCreate = async (e: React.FormEvent) => {
@@ -293,6 +330,13 @@ const SOSFeed = () => {
                       <span className={cn("status-badge", statusStyle(req.status))}>
                         {req.status}
                       </span>
+                      {/* Auto-assigned badge on the card row */}
+                      {isAutoAssigned(req) && (
+                        <span className="status-badge bg-green-500/20 text-green-400 flex items-center gap-1">
+                          <Bot className="w-2.5 h-2.5" />
+                          Auto Assigned
+                        </span>
+                      )}
                       {req.suspicious && (
                         <span className="status-badge bg-brand-primary/20 text-brand-primary">
                           ⚠ Suspicious
@@ -330,30 +374,107 @@ const SOSFeed = () => {
                 </div>
               </div>
 
-              {/* Inline Admin/Volunteer controls */}
+              {/* ── Admin Controls ── */}
               {session?.role === 'admin' && (
                 <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-2 gap-4 relative z-10">
-                  {/* Assign */}
+
+                  {/* Assign column: conditional on auto-assignment status */}
                   <div className="space-y-2">
-                    <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-widest">Assign Volunteer</p>
-                    <input
-                      className="w-full bg-bg-elevated border border-white/5 rounded-sm px-3 py-1.5 text-xs focus:outline-none focus:border-brand-primary/50"
-                      placeholder="Volunteer name"
-                      value={assignDrafts[req._id]?.volunteerName || req.assignedVolunteer?.name || ''}
-                      onChange={(e) => setAssignDrafts((c) => ({ ...c, [req._id]: { ...(c[req._id] || { volunteerName: '', volunteerWallet: '' }), volunteerName: e.target.value } }))}
-                    />
-                    <input
-                      className="w-full bg-bg-elevated border border-white/5 rounded-sm px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-primary/50"
-                      placeholder="Volunteer wallet 0x..."
-                      value={assignDrafts[req._id]?.volunteerWallet || req.assignedVolunteer?.wallet || ''}
-                      onChange={(e) => setAssignDrafts((c) => ({ ...c, [req._id]: { ...(c[req._id] || { volunteerName: '', volunteerWallet: '' }), volunteerWallet: e.target.value } }))}
-                    />
-                    <button onClick={() => handleAssign(req._id)} className="btn-tactical btn-secondary text-[10px] w-full justify-center py-1.5">
-                      <UserPlus className="w-3 h-3" />
-                      <span>Assign</span>
-                    </button>
+                    {isAutoAssigned(req) ? (
+                      /* ── Auto-Assigned Display ── */
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Bot className="w-3 h-3 text-green-400" />
+                          <p className="text-[10px] font-mono text-green-400 uppercase tracking-widest font-bold">
+                            Auto Assigned
+                          </p>
+                        </div>
+                        <div className="bg-green-500/10 border border-green-500/20 rounded-sm px-3 py-2 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <User className="w-3 h-3 text-green-400" />
+                            <span className="text-xs font-bold text-green-300">
+                              {req.assignedVolunteer?.name}
+                            </span>
+                          </div>
+                          {req.assignedVolunteer?.distanceKm != null && (
+                            <div className="flex items-center gap-2">
+                              <Navigation className="w-3 h-3 text-green-400/70" />
+                              <span className="text-[10px] text-green-400/70 font-mono">
+                                {req.assignedVolunteer.distanceKm.toFixed(1)} km away
+                              </span>
+                            </div>
+                          )}
+                          {req.assignedVolunteer?.wallet && (
+                            <p className="text-[9px] font-mono text-text-tertiary truncate">
+                              {req.assignedVolunteer.wallet.slice(0, 8)}…{req.assignedVolunteer.wallet.slice(-6)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ) : req.status === 'pending' ? (
+                      /* ── No volunteer available — manual fallback ── */
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-3 h-3 text-brand-primary" />
+                          <p className="text-[10px] font-mono text-brand-primary uppercase tracking-widest">
+                            No Volunteers Nearby
+                          </p>
+                        </div>
+                        <p className="text-[9px] text-text-tertiary">Auto-assignment failed. Assign manually:</p>
+                        <input
+                          className="w-full bg-bg-elevated border border-white/5 rounded-sm px-3 py-1.5 text-xs focus:outline-none focus:border-brand-primary/50"
+                          placeholder="Volunteer name"
+                          value={assignDrafts[req._id]?.volunteerName || ''}
+                          onChange={(e) => setAssignDrafts((c) => ({ ...c, [req._id]: { ...(c[req._id] || { volunteerName: '', volunteerWallet: '' }), volunteerName: e.target.value } }))}
+                        />
+                        <input
+                          className="w-full bg-bg-elevated border border-white/5 rounded-sm px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-primary/50"
+                          placeholder="Volunteer wallet 0x..."
+                          value={assignDrafts[req._id]?.volunteerWallet || ''}
+                          onChange={(e) => setAssignDrafts((c) => ({ ...c, [req._id]: { ...(c[req._id] || { volunteerName: '', volunteerWallet: '' }), volunteerWallet: e.target.value } }))}
+                        />
+                        <button onClick={() => handleAssign(req._id)} className="btn-tactical btn-secondary text-[10px] w-full justify-center py-1.5">
+                          <UserPlus className="w-3 h-3" />
+                          <span>Assign Manually</span>
+                        </button>
+                      </div>
+                    ) : (
+                      /* ── Manual assign (assigned via old blockchain flow or already assigned manually) ── */
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-widest">
+                          {req.assignedVolunteer?.name ? 'Manually Assigned' : 'Assign Volunteer'}
+                        </p>
+                        {req.assignedVolunteer?.name && (
+                          <div className="bg-brand-secondary/10 border border-brand-secondary/20 rounded-sm px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <User className="w-3 h-3 text-brand-secondary" />
+                              <span className="text-xs font-bold text-brand-secondary">
+                                {req.assignedVolunteer.name}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        <input
+                          className="w-full bg-bg-elevated border border-white/5 rounded-sm px-3 py-1.5 text-xs focus:outline-none focus:border-brand-primary/50"
+                          placeholder="Volunteer name"
+                          value={assignDrafts[req._id]?.volunteerName || req.assignedVolunteer?.name || ''}
+                          onChange={(e) => setAssignDrafts((c) => ({ ...c, [req._id]: { ...(c[req._id] || { volunteerName: '', volunteerWallet: '' }), volunteerName: e.target.value } }))}
+                        />
+                        <input
+                          className="w-full bg-bg-elevated border border-white/5 rounded-sm px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-primary/50"
+                          placeholder="Volunteer wallet 0x..."
+                          value={assignDrafts[req._id]?.volunteerWallet || req.assignedVolunteer?.wallet || ''}
+                          onChange={(e) => setAssignDrafts((c) => ({ ...c, [req._id]: { ...(c[req._id] || { volunteerName: '', volunteerWallet: '' }), volunteerWallet: e.target.value } }))}
+                        />
+                        <button onClick={() => handleAssign(req._id)} className="btn-tactical btn-secondary text-[10px] w-full justify-center py-1.5">
+                          <UserPlus className="w-3 h-3" />
+                          <span>Assign</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {/* Finalize */}
+
+                  {/* Finalize column — unchanged */}
                   <div className="space-y-2">
                     <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-widest">Admin Finalize</p>
                     <textarea
@@ -529,6 +650,12 @@ const SOSFeed = () => {
                   <span className={cn("status-badge", statusStyle(activeSelected.status))}>{activeSelected.status}</span>
                   <span className={cn("status-badge", priorityStyle(activeSelected.priority))}>{activeSelected.priority}</span>
                   <span className="status-badge bg-brand-secondary/20 text-brand-secondary">{activeSelected.type}</span>
+                  {isAutoAssigned(activeSelected) && (
+                    <span className="status-badge bg-green-500/20 text-green-400 flex items-center gap-1">
+                      <Bot className="w-2.5 h-2.5" />
+                      Auto Assigned
+                    </span>
+                  )}
                   {activeSelected.suspicious && (
                     <span className="status-badge bg-brand-primary/20 text-brand-primary">⚠ Suspicious</span>
                   )}
@@ -590,7 +717,6 @@ const SOSFeed = () => {
                       </div>
                     </div>
 
-                    {/* Probability bars */}
                     {activeSelected.mlScores.categoryProbability && Object.keys(activeSelected.mlScores.categoryProbability).length > 0 && (
                       <div>
                         <p className="text-[8px] font-mono text-text-tertiary uppercase tracking-widest mb-2">Category Probabilities</p>
@@ -639,9 +765,27 @@ const SOSFeed = () => {
                 {/* Assignment & verification info */}
                 <div className="glass-panel p-4 rounded-sm space-y-2 text-xs">
                   <p className="text-[8px] font-mono text-text-tertiary uppercase tracking-widest mb-2">Status Tracker</p>
+
+                  {/* Auto-assign highlight in detail panel */}
+                  {isAutoAssigned(activeSelected) && (
+                    <div className="flex items-center gap-2 py-1.5 px-2 bg-green-500/10 border border-green-500/20 rounded-sm mb-2">
+                      <Bot className="w-3 h-3 text-green-400 shrink-0" />
+                      <span className="text-[10px] text-green-400 font-mono font-bold uppercase tracking-widest">
+                        Auto-Assignment — Nearest Available Volunteer
+                      </span>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-2">
                     <div><span className="text-text-tertiary">Volunteer:</span> <span className="font-bold">{activeSelected.assignedVolunteer?.name || 'Not assigned'}</span></div>
                     <div><span className="text-text-tertiary">Wallet:</span> <span className="font-mono">{activeSelected.assignedVolunteer?.wallet ? `${activeSelected.assignedVolunteer.wallet.slice(0, 6)}...${activeSelected.assignedVolunteer.wallet.slice(-4)}` : '—'}</span></div>
+                    {activeSelected.assignedVolunteer?.distanceKm != null && (
+                      <div className="col-span-2 flex items-center gap-2">
+                        <Navigation className="w-3 h-3 text-green-400" />
+                        <span className="text-text-tertiary">Distance:</span>
+                        <span className="font-bold text-green-400">{activeSelected.assignedVolunteer.distanceKm.toFixed(1)} km away</span>
+                      </div>
+                    )}
                     <div><span className="text-text-tertiary">Vol. report:</span> <span className="font-bold">{activeSelected.volunteerVerification?.status || 'waiting'}</span></div>
                     <div><span className="text-text-tertiary">Admin final:</span> <span className="font-bold">{activeSelected.adminVerification?.status || 'waiting'}</span></div>
                     <div className="col-span-2"><span className="text-text-tertiary">Final result:</span> <span className="font-bold">{activeSelected.finalStatus || 'pending'}</span></div>

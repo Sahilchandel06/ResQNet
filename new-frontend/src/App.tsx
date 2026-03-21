@@ -9,10 +9,8 @@ import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import SOSFeed from './pages/SOSFeed';
 import Volunteers from './pages/Volunteers';
-import Governance from './pages/Governance';
 import TacticalMap from './pages/TacticalMap';
 import LandingPage from './pages/LandingPage';
-import SystemHealth from './pages/SystemHealth';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AppProvider, useApp } from './context/AppContext';
 
@@ -77,6 +75,10 @@ const AnimatedRoutes = () => {
     return <Navigate to="/landing" replace />;
   }
 
+  if (session && isLandingPage) {
+    return <Navigate to="/" replace />;
+  }
+
   if (isLandingPage) {
     return (
       <AnimatePresence mode="wait">
@@ -108,10 +110,11 @@ const AnimatedRoutes = () => {
         >
           <Routes location={location}>
             <Route path="/" element={<SOSFeed />} />
-            <Route path="/volunteers" element={<Volunteers />} />
-            <Route path="/governance" element={<Governance />} />
+            <Route
+              path="/volunteers"
+              element={session?.role === 'volunteer' ? <Navigate to="/" replace /> : <Volunteers />}
+            />
             <Route path="/map" element={<TacticalMap />} />
-            <Route path="/health" element={<SystemHealth />} />
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

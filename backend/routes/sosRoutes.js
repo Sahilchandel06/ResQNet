@@ -3,7 +3,10 @@ const { ethers } = require('ethers')
 
 const Counter = require('../models/Counter')
 const SOS = require('../models/SOS')
+const Volunteer = require('../models/Volunteer')
 const { analyzeSOS } = require('../services/aiService')
+const { geocodeWithFallback } = require('../utils/geocode')
+const { findNearestVolunteer, haversineDistance } = require('../utils/assignVolunteer')
 const {
   createSOSOnChain,
   assignVolunteerOnChain,
@@ -12,6 +15,8 @@ const {
 } = require('../services/blockchainService')
 
 const router = express.Router()
+const AUTO_ASSIGNMENT_SOURCE = 'System Auto-Assign'
+const ASSIGNMENT_BACKFILL_SOURCE = 'System Assignment Backfill'
 
 const getNextSequenceId = async () => {
   const counter = await Counter.findOneAndUpdate(
@@ -27,6 +32,40 @@ const mergeBlockchainState = (sos, updates) => ({
   ...(sos.blockchain?.toObject?.() || sos.blockchain || {}),
   ...updates,
 })
+
+const markAssignmentSyncSuccess = (sos, chainResult) => {
+  sos.blockchain = mergeBlockchainState(sos, {
+    assignedLogged: true,
+    assignedTxHash: chainResult.txHash,
+    assignBlockNumber: chainResult.blockNumber ?? null,
+    chainId: chainResult.chainId ?? sos.blockchain?.chainId ?? null,
+    contractAddress: process.env.CONTRACT_ADDRESS || '',
+    lastError: '',
+  })
+}
+
+const markBlockchainError = (sos, reason) => {
+  sos.blockchain = mergeBlockchainState(sos, {
+    lastError: reason,
+  })
+}
+
+const syncAssignedVolunteerOnChain = async (sos, { volunteerName, volunteerWallet, assignedBy }) => {
+  const chainResult = await assignVolunteerOnChain({
+    sosId: sos.sequenceId,
+    volunteerName,
+    assignedBy,
+    volunteerWallet,
+  })
+
+  if (chainResult.logged) {
+    markAssignmentSyncSuccess(sos, chainResult)
+  } else {
+    markBlockchainError(sos, chainResult.reason)
+  }
+
+  return chainResult
+}
 
 const listSOSRequests = async (_req, res) => {
   try {
@@ -74,6 +113,28 @@ router.post('/', async (req, res) => {
 
     const sequenceId = await getNextSequenceId()
 
+    // --- Silent geocoding (never blocks the request) ---
+    // Attempt 1: full location string; Attempt 2: simplified string.
+    // If both fail, coordinates stay null — the complaint is still saved.
+    let sosCoordinates = null
+    let sosGeoLocation = null
+
+    if (location && location.trim()) {
+      try {
+        const coords = await geocodeWithFallback(location)
+        if (coords) {
+          sosCoordinates = { lat: coords.lat, lng: coords.lng }
+          sosGeoLocation = {
+            type: 'Point',
+            coordinates: [coords.lng, coords.lat], // GeoJSON: [lng, lat]
+          }
+        }
+      } catch (_geoErr) {
+        // Swallow silently — geocoding failure must never surface to the SOS sender
+      }
+    }
+    // --- End of silent geocoding ---
+
     const chainResult = await createSOSOnChain({
       sosId: sequenceId,
       reporterName: name,
@@ -94,6 +155,8 @@ router.post('/', async (req, res) => {
       message,
       type,
       location: location || '',
+      coordinates: sosCoordinates,
+      geoLocation: sosGeoLocation,
       priority: resolvedPriority,
       suspicious: resolvedSuspicious,
       analysisSummary: resolvedSummary,
@@ -121,9 +184,72 @@ router.post('/', async (req, res) => {
       },
     })
 
+    // ─── Auto-assign nearest available volunteer ───────────────────────────────
+    // This block MUST NEVER throw — any error is caught and logged silently.
+    // The SOS is already saved; auto-assignment is best-effort.
+    let autoAssigned = false
+    let autoAssignedInfo = null
+
+    try {
+      const result = await findNearestVolunteer(sosCoordinates)
+
+      if (result) {
+        const { volunteer, distanceKm } = result
+        const assignedAt = new Date()
+
+        // Update the SOS document
+        sos.assignedVolunteer = {
+          name: volunteer.name,
+          wallet: volunteer.wallet,
+          assignedAt,
+        }
+        sos.status = 'assigned'
+        sos.autoAssigned = true
+
+        const chainAssignResult = await syncAssignedVolunteerOnChain(sos, {
+          volunteerName: volunteer.name,
+          volunteerWallet: volunteer.wallet,
+          assignedBy: AUTO_ASSIGNMENT_SOURCE,
+        })
+
+        await sos.save()
+
+        // Mark the volunteer as unavailable so they are not double-assigned
+        await Volunteer.findByIdAndUpdate(volunteer._id, { isAvailable: false })
+
+        autoAssigned = true
+        autoAssignedInfo = {
+          name: volunteer.name,
+          distance: `${distanceKm.toFixed(1)} km`,
+        }
+
+        console.log(
+          `[AutoAssign] SOS #${sequenceId} → volunteer "${volunteer.name}" (${distanceKm.toFixed(1)} km away)`,
+        )
+        if (!chainAssignResult.logged) {
+          console.error(
+            `[AutoAssign] SOS #${sequenceId} → assigned in MongoDB but not synced on-chain: ${chainAssignResult.reason}`,
+          )
+        }
+      } else {
+        console.log(
+          `[AutoAssign] SOS #${sequenceId} → no available volunteers within ${50} km`,
+        )
+      }
+    } catch (assignErr) {
+      // Auto-assignment failure must never break the SOS submission
+      console.error('[AutoAssign] Error during auto-assignment (non-fatal):', assignErr)
+    }
+    // ─── End of auto-assignment ────────────────────────────────────────────────
+
     return res.status(201).json({
       message: 'SOS created successfully and stored on blockchain.',
       sos,
+      autoAssigned,
+      assignedVolunteer: autoAssignedInfo,
+      ...(autoAssigned
+        ? {}
+        : { reason: 'No available volunteers found nearby' }),
     })
   } catch (error) {
     console.error('POST /api/sos error:', error)
@@ -152,33 +278,36 @@ router.put('/:id/assign', async (req, res) => {
       return res.status(404).json({ message: 'SOS request not found.' })
     }
 
-    const chainResult = await assignVolunteerOnChain({
-      sosId: sos.sequenceId,
+    const chainResult = await syncAssignedVolunteerOnChain(sos, {
       volunteerName,
       assignedBy: assignedBy || 'Admin',
       volunteerWallet,
     })
 
     if (!chainResult.logged) {
+      await sos.save()
       return res.status(502).json({ message: chainResult.reason })
     }
 
     sos.status = 'assigned'
+    sos.autoAssigned = false
     sos.assignedVolunteer = {
       name: volunteerName,
       wallet: volunteerWallet,
       assignedAt: new Date(),
     }
-    sos.blockchain = mergeBlockchainState(sos, {
-      assignedLogged: true,
-      assignedTxHash: chainResult.txHash,
-      assignBlockNumber: chainResult.blockNumber ?? null,
-      chainId: chainResult.chainId ?? sos.blockchain?.chainId ?? null,
-      contractAddress: process.env.CONTRACT_ADDRESS || '',
-      lastError: '',
-    })
 
     await sos.save()
+
+    // Also mark the volunteer as unavailable if we can find them by wallet
+    try {
+      await Volunteer.findOneAndUpdate(
+        { wallet: { $regex: new RegExp(`^${volunteerWallet}$`, 'i') } },
+        { isAvailable: false },
+      )
+    } catch (vErr) {
+      console.error('[ManualAssign] Could not update volunteer availability:', vErr)
+    }
 
     return res.json({
       message: 'Volunteer assigned and written to blockchain.',
@@ -186,6 +315,80 @@ router.put('/:id/assign', async (req, res) => {
     })
   } catch (error) {
     return res.status(500).json({ message: 'Failed to assign volunteer.' })
+  }
+})
+
+// ─── GET /:id/assignment — return rich assignment details ──────────────────────
+router.get('/:id/assignment', async (req, res) => {
+  try {
+    const sos = await SOS.findById(req.params.id).lean()
+    if (!sos) {
+      return res.status(404).json({ message: 'SOS request not found.' })
+    }
+
+    if (!sos.assignedVolunteer?.wallet) {
+      return res.json({
+        complaint: {
+          id: sos._id,
+          location: sos.location,
+          coordinates: sos.coordinates,
+        },
+        assignedVolunteer: null,
+        autoAssigned: false,
+        assignedAt: null,
+      })
+    }
+
+    // Look up the volunteer record by wallet address (case-insensitive)
+    const volunteer = await Volunteer.findOne({
+      wallet: { $regex: new RegExp(`^${sos.assignedVolunteer.wallet}$`, 'i') },
+    }).lean()
+
+    let distanceFromSOS = null
+    if (
+      volunteer &&
+      volunteer.coordinates?.lat != null &&
+      volunteer.coordinates?.lng != null &&
+      sos.coordinates?.lat != null &&
+      sos.coordinates?.lng != null
+    ) {
+      const km = haversineDistance(
+        sos.coordinates.lat,
+        sos.coordinates.lng,
+        volunteer.coordinates.lat,
+        volunteer.coordinates.lng,
+      )
+      distanceFromSOS = `${km.toFixed(1)} km`
+    }
+
+    return res.json({
+      complaint: {
+        id: sos._id,
+        location: sos.location,
+        coordinates: sos.coordinates,
+      },
+      assignedVolunteer: volunteer
+        ? {
+          id: volunteer._id,
+          name: volunteer.name,
+          location: volunteer.location,
+          coordinates: volunteer.coordinates,
+          distanceFromSOS,
+        }
+        : {
+          name: sos.assignedVolunteer.name,
+          wallet: sos.assignedVolunteer.wallet,
+          distanceFromSOS: null,
+        },
+      autoAssigned:
+        typeof sos.autoAssigned === 'boolean'
+          ? sos.autoAssigned
+          : !sos.blockchain?.assignedLogged,
+      assignedAt: sos.assignedVolunteer.assignedAt,
+    })
+  } catch (error) {
+    console.error('GET /api/sos/:id/assignment error:', error)
+    return res.status(500).json({ message: 'Failed to fetch assignment details.' })
   }
 })
 
@@ -213,6 +416,19 @@ const handleVolunteerReport = async (req, res) => {
       return res.status(403).json({ message: 'This task is assigned to a different volunteer wallet.' })
     }
 
+    if (!sos.blockchain?.assignedLogged) {
+      const assignmentBackfillResult = await syncAssignedVolunteerOnChain(sos, {
+        volunteerName: sos.assignedVolunteer.name || 'Assigned Volunteer',
+        volunteerWallet: sos.assignedVolunteer.wallet,
+        assignedBy: sos.autoAssigned ? AUTO_ASSIGNMENT_SOURCE : ASSIGNMENT_BACKFILL_SOURCE,
+      })
+
+      if (!assignmentBackfillResult.logged) {
+        await sos.save()
+        return res.status(502).json({ message: assignmentBackfillResult.reason })
+      }
+    }
+
     const chainResult = await volunteerReportOnChain({
       sosId: sos.sequenceId,
       status,
@@ -220,6 +436,8 @@ const handleVolunteerReport = async (req, res) => {
     })
 
     if (!chainResult.logged) {
+      markBlockchainError(sos, chainResult.reason)
+      await sos.save()
       return res.status(502).json({ message: chainResult.reason })
     }
 
@@ -246,6 +464,7 @@ const handleVolunteerReport = async (req, res) => {
       sos,
     })
   } catch (error) {
+    console.error('PUT /api/sos/:id/volunteer-confirm error:', error)
     return res.status(500).json({ message: 'Failed to record volunteer report.' })
   }
 }
@@ -300,6 +519,25 @@ router.put('/:id/admin-confirm', async (req, res) => {
     })
 
     await sos.save()
+
+    // ─── Release volunteer back to the available pool ─────────────────────────
+    // When a complaint is resolved (any final status), the assigned volunteer
+    // becomes available again for future SOS assignments.
+    if (sos.assignedVolunteer?.wallet) {
+      try {
+        await Volunteer.findOneAndUpdate(
+          { wallet: { $regex: new RegExp(`^${sos.assignedVolunteer.wallet}$`, 'i') } },
+          { isAvailable: true },
+        )
+        console.log(
+          `[VolunteerRelease] Volunteer "${sos.assignedVolunteer.name}" is now available again.`,
+        )
+      } catch (releaseErr) {
+        // Non-fatal — do not block the confirmation response
+        console.error('[VolunteerRelease] Could not release volunteer (non-fatal):', releaseErr)
+      }
+    }
+    // ─── End volunteer release ────────────────────────────────────────────────
 
     return res.json({
       message:

@@ -56,3 +56,17 @@ export const fetchOnChainSOS = (id: number) =>
 
 export const fetchReputation = (wallet: string) =>
     http.get<ReputationData>(`/api/web3/reputation/${wallet}`).then((r) => r.data);
+/* ── Volunteers ── */
+export const registerVolunteer = (body: {
+    name: string;
+    phone: string;
+    location: string;
+    wallet: string;
+}) => http.post('/api/volunteers', body).then((r) => r.data);
+
+export const fetchVolunteers = () =>
+    http.get('/api/volunteers').then((r) => r.data.volunteers);
+
+/* ── Assignment Details ── */
+export const fetchAssignmentDetails = (id: string) =>
+    http.get(`/api/sos/${id}/assignment`).then((r) => r.data);

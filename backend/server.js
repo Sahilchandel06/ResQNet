@@ -11,6 +11,7 @@ const {
   getProtocolStatus,
 } = require('./services/blockchainService')
 const { router: sosRoutes, listSOSRequests } = require('./routes/sosRoutes')
+const volunteerRoutes = require('./routes/volunteerRoutes')
 
 dotenv.config()
 
@@ -29,6 +30,7 @@ app.use(express.json())
 
 app.use('/api/sos', sosRoutes)
 app.get('/api/sos', listSOSRequests)
+app.use('/api/volunteers', volunteerRoutes)
 
 app.get('/api/health', (_req, res) => {
   const connectionState = mongoose.connection.readyState
