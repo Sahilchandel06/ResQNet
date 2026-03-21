@@ -1,0 +1,5 @@
+{
+  "name": "ResQNet HQ",
+  "description": "A tactical emergency response and community governance platform with live SOS feeds, AI-driven transcript analysis, and DAO-based volunteer management.",
+  "requestFramePermissions": ["geolocation"]
+}
