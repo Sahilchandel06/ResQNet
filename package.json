@@ -1,0 +1,19 @@
+{
+  "name": "resqnet",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "frontend": "npm run dev --prefix frontend",
+    "backend": "npm run dev --prefix backend",
+    "build": "npm run build --prefix frontend",
+    "contracts:compile": "hardhat compile",
+    "contracts:deploy": "hardhat run scripts/deploy.js --network sepolia",
+    "contracts:verify": "hardhat run scripts/verify.js --network sepolia"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "@nomicfoundation/hardhat-verify": "^2.0.11",
+    "dotenv": "^17.3.1",
+    "hardhat": "^2.22.19"
+  }
+}
