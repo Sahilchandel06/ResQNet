@@ -15,18 +15,43 @@ const verificationSchema = new mongoose.Schema(
       type: Date,
     },
   },
-  {
-    _id: false,
-  },
+  { _id: false },
 )
 
 const blockchainSchema = new mongoose.Schema(
   {
-    logged: {
+    createdLogged: {
       type: Boolean,
       default: false,
     },
-    txHash: {
+    assignedLogged: {
+      type: Boolean,
+      default: false,
+    },
+    volunteerReportedLogged: {
+      type: Boolean,
+      default: false,
+    },
+    completedLogged: {
+      type: Boolean,
+      default: false,
+    },
+    createdTxHash: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    assignedTxHash: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    volunteerReportedTxHash: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    completedTxHash: {
       type: String,
       trim: true,
       default: '',
@@ -36,16 +61,24 @@ const blockchainSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
-    blockNumber: {
+    createBlockNumber: {
+      type: Number,
+      default: null,
+    },
+    assignBlockNumber: {
+      type: Number,
+      default: null,
+    },
+    volunteerReportedBlockNumber: {
+      type: Number,
+      default: null,
+    },
+    completeBlockNumber: {
       type: Number,
       default: null,
     },
     chainId: {
       type: Number,
-      default: null,
-    },
-    loggedAt: {
-      type: Date,
       default: null,
     },
     lastError: {
@@ -54,9 +87,7 @@ const blockchainSchema = new mongoose.Schema(
       default: '',
     },
   },
-  {
-    _id: false,
-  },
+  { _id: false },
 )
 
 const sosSchema = new mongoose.Schema(
@@ -99,7 +130,7 @@ const sosSchema = new mongoose.Schema(
     status: {
       type: String,
       default: 'pending',
-      enum: ['pending', 'assigned', 'completed', 'fake', 'disputed'],
+      enum: ['pending', 'assigned', 'volunteer_completed', 'volunteer_fake', 'completed', 'fake', 'disputed'],
     },
     role: {
       type: String,
@@ -140,9 +171,7 @@ const sosSchema = new mongoose.Schema(
       default: () => ({}),
     },
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true },
 )
 
 module.exports = mongoose.model('SOS', sosSchema)

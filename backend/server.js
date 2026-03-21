@@ -4,7 +4,12 @@ const dotenv = require('dotenv')
 const mongoose = require('mongoose')
 
 const connectDB = require('./config/db')
-const { getReputation, hasBlockchainConfig } = require('./services/blockchainService')
+const {
+  getReputation,
+  getSOSRecord,
+  hasBlockchainConfig,
+  getProtocolStatus,
+} = require('./services/blockchainService')
 const { router: sosRoutes, listSOSRequests } = require('./routes/sosRoutes')
 
 dotenv.config()
@@ -44,16 +49,23 @@ app.get('/api/health', (_req, res) => {
   })
 })
 
-app.get('/api/web3/status', (_req, res) => {
+app.get('/api/web3/status', async (_req, res) => {
+  const protocolStatus = await getProtocolStatus()
+
   res.json({
+    ...protocolStatus,
     configured: hasBlockchainConfig(),
-    contractAddress: process.env.CONTRACT_ADDRESS || '',
     rpcUrl: process.env.RPC_URL || '',
   })
 })
 
 app.get('/api/web3/reputation/:wallet', async (req, res) => {
   const result = await getReputation(req.params.wallet)
+  res.json(result)
+})
+
+app.get('/api/web3/sos/:id', async (req, res) => {
+  const result = await getSOSRecord(Number(req.params.id))
   res.json(result)
 })
 
