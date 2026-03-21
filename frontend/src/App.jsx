@@ -46,7 +46,47 @@ function Card({ title, action, children }) {
   )
 }
 
+function ConfidenceBar({ value }) {
+  const pct = Math.round((value || 0) * 100)
+  const color = pct >= 70 ? 'bg-emerald-400' : pct >= 40 ? 'bg-amber-400' : 'bg-rose-400'
+  return (
+    <div className="flex items-center gap-3">
+      <div className="h-2 flex-1 rounded-full bg-slate-800">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-xs font-semibold tabular-nums" style={{ minWidth: '2.5rem' }}>{pct}%</span>
+    </div>
+  )
+}
+
+function ProbabilityGrid({ label, data }) {
+  if (!data || Object.keys(data).length === 0) return null
+  const entries = Object.entries(data).sort((a, b) => b[1] - a[1])
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wider text-slate-500 mb-1.5">{label}</p>
+      <div className="grid gap-1">
+        {entries.map(([key, prob]) => (
+          <div key={key} className="flex items-center gap-2 text-xs">
+            <span className="w-20 truncate text-slate-400 capitalize">{key}</span>
+            <div className="h-1.5 flex-1 rounded-full bg-slate-800">
+              <div className="h-full rounded-full bg-cyan-400/70" style={{ width: `${Math.round(prob * 100)}%` }} />
+            </div>
+            <span className="w-10 text-right tabular-nums text-slate-500">{(prob * 100).toFixed(1)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function RequestView({ request, showChain = true, children }) {
+  // Support both Map objects (from Mongoose) and plain objects
+  const catProb = request.mlScores?.categoryProbability
+  const priProb = request.mlScores?.priorityProbability
+  const catData = catProb instanceof Map ? Object.fromEntries(catProb) : (catProb || null)
+  const priData = priProb instanceof Map ? Object.fromEntries(priProb) : (priProb || null)
+
   return (
     <article className="rounded-3xl border border-white/10 bg-slate-950/60 p-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:justify-between">
@@ -61,13 +101,59 @@ function RequestView({ request, showChain = true, children }) {
             <span className={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.2em] ${badge[request.priority] || badge.Medium}`}>
               {request.priority}
             </span>
+            {request.suspicious ? (
+              <span className="rounded-full border border-rose-400/30 bg-rose-500/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-rose-100">
+                ⚠ Suspicious
+              </span>
+            ) : null}
           </div>
           <div className="mt-2 flex items-center gap-4">
             <p className="text-sm font-medium text-cyan-200">{request.type}</p>
             {request.location && <p className="text-sm font-medium text-amber-200">📍 {request.location}</p>}
           </div>
           <p className="mt-3 text-sm leading-6 text-slate-300">{request.message}</p>
-          {request.analysisSummary ? (
+
+          {/* Keywords */}
+          {request.keywords && request.keywords.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {request.keywords.map((kw, i) => (
+                <span key={i} className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-0.5 text-xs text-cyan-200">
+                  {kw}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {/* ML Scores Panel */}
+          {request.mlScores && request.mlScores.confidence != null ? (
+            <div className="mt-3 rounded-lg border border-white/5 bg-slate-900/50 p-4">
+              <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">ML Model Scores</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">Confidence</p>
+                  <ConfidenceBar value={request.mlScores.confidence} />
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <p className="text-slate-500">ML Category</p>
+                    <p className="font-medium text-white capitalize">{request.mlScores.mlCategory || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">ML Priority</p>
+                    <p className="font-medium text-white capitalize">{request.mlScores.mlPriority || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Gemini Hint</p>
+                    <p className="font-medium text-slate-300 capitalize">{request.mlScores.geminiCategoryHint || '—'}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <ProbabilityGrid label="Category Probabilities" data={catData} />
+                <ProbabilityGrid label="Priority Probabilities" data={priData} />
+              </div>
+            </div>
+          ) : request.analysisSummary ? (
             <div className="mt-3 rounded-lg border border-white/5 bg-slate-900/50 p-3">
               <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">AI Analysis</p>
               <p className="text-sm text-slate-400 whitespace-pre-wrap">{request.analysisSummary}</p>

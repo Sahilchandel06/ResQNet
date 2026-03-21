@@ -50,7 +50,11 @@ router.get('/recent', async (_req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { name, message, type, reporterWallet, location } = req.body
+    const {
+      name, message, type, reporterWallet, location,
+      priority, suspicious, analysisSummary,
+      keywords, mlScores,
+    } = req.body
 
     if (!name || !message || !type) {
       return res.status(400).json({ message: 'Name, message, and type are required.' })
@@ -59,7 +63,15 @@ router.post('/', async (req, res) => {
     const normalizedReporterWallet =
       reporterWallet && ethers.isAddress(reporterWallet) ? reporterWallet : ethers.ZeroAddress
 
-    const analysis = analyzeSOS({ message, type })
+    // Use ML-derived fields from resqnet-call if provided, otherwise fall back
+    // to the keyword-heuristic analyzer for manual frontend submissions.
+    const heuristic = analyzeSOS({ message, type })
+
+    const resolvedPriority = priority || heuristic.priority
+    const resolvedSuspicious =
+      typeof suspicious === 'boolean' ? suspicious : heuristic.suspicious
+    const resolvedSummary = analysisSummary || heuristic.analysisSummary
+
     const sequenceId = await getNextSequenceId()
 
     const chainResult = await createSOSOnChain({
@@ -68,8 +80,8 @@ router.post('/', async (req, res) => {
       reporterWallet: normalizedReporterWallet,
       message,
       emergencyType: type,
-      priority: analysis.priority,
-      suspicious: analysis.suspicious,
+      priority: resolvedPriority,
+      suspicious: resolvedSuspicious,
     })
 
     if (!chainResult.logged) {
@@ -82,9 +94,11 @@ router.post('/', async (req, res) => {
       message,
       type,
       location: location || '',
-      priority: analysis.priority,
-      suspicious: analysis.suspicious,
-      analysisSummary: analysis.analysisSummary,
+      priority: resolvedPriority,
+      suspicious: resolvedSuspicious,
+      analysisSummary: resolvedSummary,
+      keywords: Array.isArray(keywords) ? keywords : [],
+      mlScores: mlScores || {},
       status: 'pending',
       role: 'user',
       finalStatus: 'pending',

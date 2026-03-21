@@ -60,7 +60,10 @@ async def complete(
         print(f"Caller: {From}")
         print(f"Transcript: {combined}")
         print(f"Analysis:\n{json.dumps(analysis, indent=2)}")
-        print("=========================================\n")
+        print(f"  → ML Category:  {analysis.get('emergency_type')}")
+        print(f"  → ML Priority:  {analysis.get('priority')}")
+        print(f"  → ML Confidence: {analysis.get('confidence')}")
+        print("==========================================\n")
 
         # Build the raw user message from speech parts (no prefixes)
         raw_message = full_transcript.strip() or emergency.strip()
@@ -93,14 +96,14 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "ResQNet Emergency Dispatcher",
-        "version": "1.0.0",
-        "timestamp": "2026-03-21"
+        "version": "2.0.0",
+        "pipeline": "Gemini NLP + Local ML Scoring",
     }
 
 
 @app.get("/test/gemini")
 async def test_gemini():
-    """Test Gemini API without Twilio"""
+    """Test the unified Gemini + ML pipeline without Twilio"""
     test_transcript = """
     Emergency: I had a car accident near Alkapuri Circle, 
     someone is bleeding badly and unconscious. 
@@ -110,47 +113,53 @@ async def test_gemini():
     try:
         analysis = await analyze_emergency(test_transcript)
         
-        print("\n========== RESQNET GEMINI TEST RESULT ==========")
+        print("\n========== RESQNET UNIFIED TEST RESULT ==========")
         print(f"Transcript: {test_transcript}")
         print(f"Analysis:\n{json.dumps(analysis, indent=2)}")
-        print("==============================================\n")
+        print(f"  → ML Category:  {analysis.get('emergency_type')}")
+        print(f"  → ML Priority:  {analysis.get('priority')}")
+        print(f"  → ML Confidence: {analysis.get('confidence')}")
+        print("=================================================\n")
 
         # Auto-submit test result to backend
         backend_ok = await submit_to_backend(analysis, "test-gemini", test_transcript, analysis.get("location", ""))
         
         return {
             "status": "success",
-            "test": "gemini_analysis",
+            "test": "unified_gemini_ml_pipeline",
             "transcript": test_transcript,
             "analysis": analysis,
             "backend_submitted": backend_ok
         }
     except Exception as e:
-        print(f"\n❌ Error in Gemini test: {e}")
+        print(f"\n❌ Error in unified test: {e}")
         return {
             "status": "error",
-            "test": "gemini_analysis",
+            "test": "unified_gemini_ml_pipeline",
             "error": str(e)
         }
 
 
 @app.post("/test/analyze")
 async def test_analyze_manual(transcript: str):
-    """Manual test endpoint - send custom transcript for analysis"""
+    """Manual test endpoint - send custom transcript for unified analysis"""
     try:
         analysis = await analyze_emergency(transcript)
         
         print("\n========== RESQNET MANUAL TEST RESULT ==========")
         print(f"Transcript: {transcript}")
         print(f"Analysis:\n{json.dumps(analysis, indent=2)}")
-        print("==============================================\n")
+        print(f"  → ML Category:  {analysis.get('emergency_type')}")
+        print(f"  → ML Priority:  {analysis.get('priority')}")
+        print(f"  → ML Confidence: {analysis.get('confidence')}")
+        print("================================================\n")
 
         # Auto-submit manual test result to backend
         backend_ok = await submit_to_backend(analysis, "test-manual", transcript, analysis.get("location", ""))
         
         return {
             "status": "success",
-            "test": "manual_analysis",
+            "test": "manual_unified_analysis",
             "transcript": transcript,
             "analysis": analysis,
             "backend_submitted": backend_ok
@@ -159,14 +168,14 @@ async def test_analyze_manual(transcript: str):
         print(f"\n❌ Error in manual test: {e}")
         return {
             "status": "error",
-            "test": "manual_analysis",
+            "test": "manual_unified_analysis",
             "error": str(e)
         }
 
 
 @app.get("/test")
 async def test():
-    """Legacy test endpoint - simulates complete emergency flow"""
+    """Legacy test endpoint - simulates complete emergency flow with ML scoring"""
     test_transcript = """
     Emergency: I had a car accident near Alkapuri Circle, 
     someone is bleeding badly and unconscious. 
@@ -179,6 +188,9 @@ async def test():
         print("\n========== RESQNET TEST RESULT ==========")
         print(f"Transcript: {test_transcript}")
         print(f"Analysis:\n{json.dumps(analysis, indent=2)}")
+        print(f"  → ML Category:  {analysis.get('emergency_type')}")
+        print(f"  → ML Priority:  {analysis.get('priority')}")
+        print(f"  → ML Confidence: {analysis.get('confidence')}")
         print("=========================================\n")
 
         # Auto-submit legacy test result to backend

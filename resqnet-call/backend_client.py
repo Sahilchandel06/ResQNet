@@ -1,8 +1,10 @@
 """
 backend_client.py — Submits resqnet-call analysis to the backend SOS route.
 
-Maps the Gemini analysis JSON + caller info to the backend's expected
-{name, message, type} schema and POSTs to POST /api/sos with retry logic.
+Maps the unified analysis JSON (Gemini NLP + ML scores) + caller info
+to the backend's expected schema and POSTs to POST /api/sos with retry logic.
+
+The ML model's priority, category, and confidence are used instead of Gemini's.
 """
 
 import os
@@ -14,8 +16,8 @@ load_dotenv()
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5000")
 
-# Map resqnet-call emergency_type → backend SOS type enum
-EMERGENCY_TYPE_MAP = {
+# Map ML model category labels → backend SOS type enum
+ML_CATEGORY_MAP = {
     "medical": "Medical",
     "fire": "Fire",
     "accident": "Accident",
@@ -24,33 +26,82 @@ EMERGENCY_TYPE_MAP = {
     "other": "Other",
 }
 
+# Map ML model priority labels → backend SOS priority enum
+ML_PRIORITY_MAP = {
+    "critical": "Critical",
+    "high": "High",
+    "moderate": "High",
+    "medium": "Medium",
+    "low": "Low",
+}
+
 MAX_RETRIES = 3
 RETRY_BACKOFF_BASE = 2  # seconds
 
 
-def _map_type(emergency_type: str) -> str:
-    """Convert Gemini emergency_type to the backend's type enum."""
-    return EMERGENCY_TYPE_MAP.get(emergency_type.lower().strip(), "Other")
+def _map_type(ml_category: str) -> str:
+    """Convert ML model category to the backend's type enum."""
+    return ML_CATEGORY_MAP.get(ml_category.lower().strip(), "Other")
+
+
+def _map_priority(ml_priority: str) -> str:
+    """Convert ML model priority to the backend's priority enum."""
+    return ML_PRIORITY_MAP.get(ml_priority.lower().strip(), "Medium")
 
 
 def build_payload(analysis: dict, caller: str, transcript: str, location: str = "") -> dict:
     """
     Build the payload the backend's POST /api/sos route expects.
 
-    The backend only accepts: name, message, type, location.
-    - name:     "ResQNet-Call (<caller phone>)" to identify automated entries
-    - message:  the user's actual spoken words only — nothing else
-    - type:     mapped from the Gemini emergency_type to the backend enum
-    - location: from the caller's speech or Gemini extraction
+    Fields sent:
+      name            – "ResQNet-Call (<caller phone>)"
+      message         – the user's actual spoken words
+      type            – mapped from the ML model's category
+      location        – from the caller's speech or Gemini extraction
+      priority        – mapped from the ML model's priority
+      analysisSummary – Gemini summary + ML confidence + keywords
+      suspicious      – True if ML confidence is very low
     """
-    # Use the provided location first, fall back to Gemini's extraction
+    # Resolve location: caller's speech first, fallback to Gemini extraction
     resolved_location = location.strip() if location else (analysis.get("location") or "")
+
+    # Build a rich analysis summary from Gemini + ML data
+    summary = analysis.get("summary", "")
+    confidence = analysis.get("confidence", 0.0)
+    keywords = analysis.get("keywords_detected", [])
+    ml_detail = analysis.get("ml_detail", {})
+
+    summary_parts = []
+    if summary:
+        summary_parts.append(summary)
+    summary_parts.append(f"ML Confidence: {confidence:.1%}")
+    if keywords:
+        summary_parts.append(f"Keywords: {', '.join(keywords)}")
+    if ml_detail.get("gemini_category_hint"):
+        summary_parts.append(f"Gemini hint: {ml_detail['gemini_category_hint']}")
+
+    analysis_summary = " | ".join(summary_parts)
+
+    # Flag as suspicious if ML confidence is very low
+    suspicious = confidence < 0.3
 
     return {
         "name": f"ResQNet-Call ({caller})",
         "message": transcript,
         "type": _map_type(analysis.get("emergency_type", "other")),
         "location": resolved_location,
+        "priority": _map_priority(analysis.get("priority", "moderate")),
+        "analysisSummary": analysis_summary,
+        "suspicious": suspicious,
+        "keywords": keywords,
+        "mlScores": {
+            "confidence": confidence,
+            "mlCategory": analysis.get("emergency_type", ""),
+            "mlPriority": analysis.get("priority", ""),
+            "geminiCategoryHint": ml_detail.get("gemini_category_hint", ""),
+            "categoryProbability": ml_detail.get("category_probability", {}),
+            "priorityProbability": ml_detail.get("priority_probability", {}),
+        },
     }
 
 
@@ -65,6 +116,8 @@ async def submit_to_backend(
     """
     payload = build_payload(analysis, caller, transcript, location)
     url = f"{BACKEND_URL}/api/sos"
+
+    print(f"\n📤 Backend payload: {payload}\n")
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:

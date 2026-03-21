@@ -90,6 +90,41 @@ const blockchainSchema = new mongoose.Schema(
   { _id: false },
 )
 
+const mlScoresSchema = new mongoose.Schema(
+  {
+    confidence: {
+      type: Number,
+      default: null,
+    },
+    mlCategory: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    mlPriority: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    geminiCategoryHint: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    categoryProbability: {
+      type: Map,
+      of: Number,
+      default: {},
+    },
+    priorityProbability: {
+      type: Map,
+      of: Number,
+      default: {},
+    },
+  },
+  { _id: false },
+)
+
 const sosSchema = new mongoose.Schema(
   {
     sequenceId: {
@@ -131,6 +166,14 @@ const sosSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: '',
+    },
+    keywords: {
+      type: [String],
+      default: [],
+    },
+    mlScores: {
+      type: mlScoresSchema,
+      default: () => ({}),
     },
     status: {
       type: String,
