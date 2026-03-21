@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+twilio
+openai-whisper
+google-generativeai
+httpx
+python-multipart
+python-dotenv

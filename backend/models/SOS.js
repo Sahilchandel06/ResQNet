@@ -113,6 +113,11 @@ const sosSchema = new mongoose.Schema(
       trim: true,
       enum: ['Medical', 'Fire', 'Accident', 'Crime', 'Disaster', 'Other'],
     },
+    location: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     priority: {
       type: String,
       default: 'Medium',

@@ -50,7 +50,7 @@ router.get('/recent', async (_req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { name, message, type, reporterWallet } = req.body
+    const { name, message, type, reporterWallet, location } = req.body
 
     if (!name || !message || !type) {
       return res.status(400).json({ message: 'Name, message, and type are required.' })
@@ -81,6 +81,7 @@ router.post('/', async (req, res) => {
       name,
       message,
       type,
+      location: location || '',
       priority: analysis.priority,
       suspicious: analysis.suspicious,
       analysisSummary: analysis.analysisSummary,
@@ -111,11 +112,12 @@ router.post('/', async (req, res) => {
       sos,
     })
   } catch (error) {
+    console.error('POST /api/sos error:', error)
     if (error.name === 'ValidationError') {
       return res.status(400).json({ message: error.message })
     }
 
-    return res.status(500).json({ message: 'Failed to create SOS request.' })
+    return res.status(500).json({ message: 'Failed to create SOS request.', error: error.message })
   }
 })
 

@@ -12,7 +12,12 @@ const getContract = () => {
     return null
   }
 
-  const provider = new ethers.JsonRpcProvider(process.env.RPC_URL)
+  const fetchReq = new ethers.FetchRequest(process.env.RPC_URL)
+  fetchReq.timeout = 30000 // 30 second timeout
+  const provider = new ethers.JsonRpcProvider(fetchReq, undefined, {
+    staticNetwork: true,
+    batchMaxCount: 1,
+  })
   const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider)
   const contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, contractAbi, signer)
 

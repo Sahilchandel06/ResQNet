@@ -62,9 +62,17 @@ function RequestView({ request, showChain = true, children }) {
               {request.priority}
             </span>
           </div>
-          <p className="mt-2 text-sm text-cyan-200">{request.type}</p>
+          <div className="mt-2 flex items-center gap-4">
+            <p className="text-sm font-medium text-cyan-200">{request.type}</p>
+            {request.location && <p className="text-sm font-medium text-amber-200">📍 {request.location}</p>}
+          </div>
           <p className="mt-3 text-sm leading-6 text-slate-300">{request.message}</p>
-          <p className="mt-2 text-sm text-slate-400">AI: {request.analysisSummary}</p>
+          {request.analysisSummary ? (
+            <div className="mt-3 rounded-lg border border-white/5 bg-slate-900/50 p-3">
+              <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">AI Analysis</p>
+              <p className="text-sm text-slate-400 whitespace-pre-wrap">{request.analysisSummary}</p>
+            </div>
+          ) : null}
         </div>
         <div className="grid gap-2 text-sm text-slate-300">
           <p>Volunteer: {request.assignedVolunteer?.name || 'Not assigned'}</p>
