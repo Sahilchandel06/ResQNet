@@ -16,6 +16,7 @@ import { twMerge } from 'tailwind-merge';
 import MapDashboard from '../components/MapDashboard';
 import { fetchAssignmentDetails } from '../api';
 import { useApp } from '../context/AppContext';
+import { maskPhoneInLabel } from '../utils/maskPhone';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -74,7 +75,7 @@ const buildSampleRoute = ([startLat, startLng]: LatLng, [endLat, endLng]: LatLng
 
 const toIncident = (req: SOSRequest): SOSIncident => ({
   id: req._id,
-  title: `${req.name} — ${req.type}`,
+  title: `${maskPhoneInLabel(req.name)} — ${req.type}`,
   location: req.location || 'Unknown',
   coordinates:
     req.coordinates?.lat != null && req.coordinates?.lng != null
@@ -84,7 +85,7 @@ const toIncident = (req: SOSRequest): SOSIncident => ({
   priority: req.priority === 'Critical' || req.priority === 'High' ? 'Critical' : 'Moderate',
   status: req.finalStatus === 'completed' ? 'Resolved' : 'Active',
   description: req.message,
-  callerName: req.name,
+  callerName: maskPhoneInLabel(req.name),
   callerPhone: '',
 });
 
@@ -350,7 +351,7 @@ const TacticalMap = () => {
                   <p className="text-[10px] font-mono uppercase tracking-widest text-brand-primary">
                     SOS Caller Position
                   </p>
-                  <p className="text-sm font-bold">{selectedRequest.name}</p>
+                  <p className="text-sm font-bold">{maskPhoneInLabel(selectedRequest.name)}</p>
                   <p className="text-[10px] text-text-secondary">{selectedRequest.location || 'Unknown location'}</p>
                 </div>
 
@@ -430,7 +431,7 @@ const TacticalMap = () => {
               </div>
               <div>
                 <p className="text-[10px] font-mono uppercase tracking-widest text-text-tertiary">SOS Marker</p>
-                <p className="text-xs font-bold">{selectedRequest?.name || 'Waiting for selection'}</p>
+                <p className="text-xs font-bold">{selectedRequest ? maskPhoneInLabel(selectedRequest.name) : 'Waiting for selection'}</p>
               </div>
             </div>
 

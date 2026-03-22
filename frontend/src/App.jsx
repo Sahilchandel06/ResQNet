@@ -21,6 +21,24 @@ const badge = {
 }
 
 const shortAddress = (value) => (value ? `${value.slice(0, 6)}...${value.slice(-4)}` : 'Not set')
+const maskPhoneInLabel = (value) =>
+  value.replace(/\(([^)]+)\)/g, (match, inner) => {
+    const digits = inner.replace(/\D/g, '')
+
+    if (digits.length < 7) {
+      return match
+    }
+
+    const visibleStart = inner.trim().startsWith('+')
+      ? `+${digits.slice(0, 2)}`
+      : digits.slice(0, 2)
+    const visibleEnd = digits.slice(-4)
+    const shownDigits =
+      (visibleStart.startsWith('+') ? visibleStart.length - 1 : visibleStart.length) + visibleEnd.length
+    const hidden = '*'.repeat(Math.max(digits.length - shownDigits, 3))
+
+    return `(${visibleStart}${hidden}${visibleEnd})`
+  })
 const formatStamp = (value) => (value ? new Date(Number(value) * 1000).toLocaleString() : 'Not recorded')
 const formatReward = (weiValue) => {
   if (!weiValue || BigInt(weiValue) === 0n) {
@@ -93,7 +111,7 @@ function RequestView({ request, showChain = true, children }) {
         <div>
           <div className="flex flex-wrap gap-2">
             <p className="text-lg font-semibold text-white">
-              #{request.sequenceId} {request.name}
+              #{request.sequenceId} {maskPhoneInLabel(request.name)}
             </p>
             <span className={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.2em] ${badge[request.status] || badge.pending}`}>
               {request.status}

@@ -30,6 +30,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import type { SOSRequest } from '../types';
+import { maskPhoneInLabel } from '../utils/maskPhone';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -322,7 +323,7 @@ const SOSFeed = () => {
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-3 flex-wrap">
                       <h4 className="text-sm font-bold tracking-tight group-hover:text-brand-primary transition-colors truncate">
-                        {req.name} — {req.type}
+                        {maskPhoneInLabel(req.name)} — {req.type}
                       </h4>
                       <span className={cn("status-badge", priorityStyle(req.priority))}>
                         {req.priority}
@@ -635,7 +636,7 @@ const SOSFeed = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold tracking-tight">SOS #{activeSelected.sequenceId}</h3>
-                    <p className="text-[10px] text-text-secondary font-mono uppercase tracking-widest">{activeSelected.name}</p>
+                    <p className="text-[10px] text-text-secondary font-mono uppercase tracking-widest">{maskPhoneInLabel(activeSelected.name)}</p>
                   </div>
                 </div>
                 <button onClick={() => setSelectedRequest(null)} className="p-2 hover:bg-white/5 rounded-sm transition-colors">

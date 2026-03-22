@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -18,55 +18,66 @@ function cn(...inputs: ClassValue[]) {
 
 const Sidebar = () => {
   const { logout, session } = useApp();
+  const navigate = useNavigate();
 
   const navItems = [
-    { icon: LayoutDashboard, label: 'SOS Feed', path: '/' },
+    { icon: LayoutDashboard, label: 'SOS Feed', path: '/dashboard' },
     { icon: MapIcon, label: 'Tactical Map', path: '/map' },
     ...(session?.role === 'volunteer' ? [] : [{ icon: Users, label: 'Volunteers', path: '/volunteers' }]),
   ];
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
   return (
-    <aside className="w-64 h-screen border-r border-white/5 bg-bg-surface flex flex-col">
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-8 h-8 bg-brand-primary rounded-sm flex items-center justify-center">
-          <ShieldCheck className="text-white w-5 h-5" />
+    <aside className="flex h-screen w-64 flex-col border-r border-white/5 bg-bg-surface">
+      <div className="flex items-center gap-3 p-6">
+        <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-brand-primary">
+          <ShieldCheck className="h-5 w-5 text-white" />
         </div>
         <div>
-          <h1 className="font-bold text-sm tracking-tight">RESQNET HQ</h1>
-          <p className="text-[10px] text-text-secondary font-mono uppercase tracking-widest">Tactical Command</p>
+          <h1 className="text-sm font-bold tracking-tight">RESQNET HQ</h1>
+          <p className="text-[10px] font-mono uppercase tracking-widest text-text-secondary">
+            Tactical Command
+          </p>
         </div>
       </div>
 
-      <nav className="flex-1 px-4 py-6 space-y-1">
+      <nav className="flex-1 space-y-1 px-4 py-6">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
-            className={({ isActive }) => cn(
-              "flex items-center gap-3 px-3 py-2 rounded-sm text-sm transition-all duration-200",
-              isActive
-                ? "bg-brand-primary/10 text-brand-primary border-r-2 border-brand-primary"
-                : "text-text-secondary hover:text-white hover:bg-white/5"
-            )}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 rounded-sm px-3 py-2 text-sm transition-all duration-200',
+                isActive
+                  ? 'border-r-2 border-brand-primary bg-brand-primary/10 text-brand-primary'
+                  : 'text-text-secondary hover:bg-white/5 hover:text-white',
+              )
+            }
           >
-            <item.icon className="w-4 h-4" />
+            <item.icon className="h-4 w-4" />
             <span>{item.label}</span>
           </NavLink>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-white/5 space-y-4">
-        <div className="flex items-center gap-3 px-3 py-2 text-text-secondary hover:text-white cursor-pointer transition-colors">
-          <Settings className="w-4 h-4" />
+      <div className="space-y-4 border-t border-white/5 p-4">
+        <div className="flex cursor-pointer items-center gap-3 px-3 py-2 text-text-secondary transition-colors hover:text-white">
+          <Settings className="h-4 w-4" />
           <span className="text-sm">Settings</span>
         </div>
-        <div
-          onClick={logout}
-          className="flex items-center gap-3 px-3 py-2 text-brand-primary hover:text-red-400 cursor-pointer transition-colors"
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 px-3 py-2 text-left text-brand-primary transition-colors hover:text-red-400"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="h-4 w-4" />
           <span className="text-sm">Logout</span>
-        </div>
+        </button>
       </div>
     </aside>
   );
