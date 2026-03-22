@@ -94,7 +94,13 @@ async def process_completed_call(
         raw_location = location.strip()
 
         try:
-            await submit_to_backend(analysis, caller, raw_message, raw_location)
+            await submit_to_backend(
+                analysis,
+                caller,
+                raw_message,
+                raw_location,
+                source_request_key=f"twilio:{submission_key}",
+            )
         except Exception as be:
             print(f"⚠️  Backend submission error (non-fatal): {be}")
     except Exception as e:

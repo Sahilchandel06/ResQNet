@@ -132,6 +132,12 @@ const sosSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
+    sourceRequestKey: {
+      type: String,
+      trim: true,
+      unique: true,
+      sparse: true,
+    },
     name: {
       type: String,
       required: true,

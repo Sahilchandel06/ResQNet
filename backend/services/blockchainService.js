@@ -3,6 +3,12 @@ const { ethers } = require('ethers')
 const contractArtifact = require('../../artifacts/contracts/ResQNetProtocol.sol/ResQNetProtocol.json')
 
 const contractAbi = contractArtifact.abi
+const ON_CHAIN_SOS_ID_CACHE_TTL_MS = 30000
+
+let latestOnChainSosIdCache = {
+  value: null,
+  fetchedAt: 0,
+}
 
 const hasBlockchainConfig = () =>
   Boolean(process.env.RPC_URL && process.env.PRIVATE_KEY && process.env.CONTRACT_ADDRESS)
@@ -84,6 +90,46 @@ const shapeReceipt = async (receipt, extra = {}) => ({
   ...extra,
 })
 
+const setLatestOnChainSosIdCache = (value) => {
+  if (!Number.isInteger(value) || value < 0) {
+    return
+  }
+
+  latestOnChainSosIdCache = {
+    value,
+    fetchedAt: Date.now(),
+  }
+}
+
+const getLatestOnChainSosId = async () => {
+  if (!hasBlockchainConfig()) {
+    return null
+  }
+
+  if (
+    latestOnChainSosIdCache.value !== null &&
+    Date.now() - latestOnChainSosIdCache.fetchedAt < ON_CHAIN_SOS_ID_CACHE_TTL_MS
+  ) {
+    return latestOnChainSosIdCache.value
+  }
+
+  try {
+    const { contract } = getContract()
+    const events = await contract.queryFilter(contract.filters.SOSCreated(), 0, 'latest')
+    const latestOnChainSosId = events.reduce((highestSosId, event) => {
+      const eventSosId = Number(event?.args?.sosId ?? 0)
+      return Number.isInteger(eventSosId) && eventSosId > highestSosId
+        ? eventSosId
+        : highestSosId
+    }, 0)
+
+    setLatestOnChainSosIdCache(latestOnChainSosId)
+    return latestOnChainSosId
+  } catch {
+    return null
+  }
+}
+
 const sosExistsOnChain = async (sosId) => {
   if (!hasBlockchainConfig()) {
     return false
@@ -123,6 +169,7 @@ const createSOSOnChain = async ({ sosId, reporterName, reporterWallet, message, 
       suspicious,
     )
     const receipt = await tx.wait()
+    setLatestOnChainSosIdCache(sosId)
     return shapeReceipt(receipt)
   } catch (error) {
     return { logged: false, reason: formatContractError(error) }
@@ -316,6 +363,7 @@ const getProtocolStatus = async () => {
 
 module.exports = {
   hasBlockchainConfig,
+  getLatestOnChainSosId,
   sosExistsOnChain,
   createSOSOnChain,
   assignVolunteerOnChain,

@@ -9,6 +9,7 @@ const { sendAssignmentSms } = require('../services/notificationService')
 const { geocodeWithFallback } = require('../utils/geocode')
 const { findNearestVolunteer, haversineDistance } = require('../utils/assignVolunteer')
 const {
+  getLatestOnChainSosId,
   sosExistsOnChain,
   createSOSOnChain,
   assignVolunteerOnChain,
@@ -19,6 +20,7 @@ const {
 const router = express.Router()
 const AUTO_ASSIGNMENT_SOURCE = 'System Auto-Assign'
 const ASSIGNMENT_BACKFILL_SOURCE = 'System Assignment Backfill'
+const activeSourceSubmissions = new Map()
 
 const getNextSequenceId = async () => {
   const counter = await Counter.findOneAndUpdate(
@@ -30,8 +32,30 @@ const getNextSequenceId = async () => {
   return counter.value
 }
 
+const syncCounterWithOnChain = async () => {
+  const latestOnChainSosId = await getLatestOnChainSosId()
+
+  if (!Number.isInteger(latestOnChainSosId) || latestOnChainSosId <= 0) {
+    return
+  }
+
+  await Counter.findOneAndUpdate(
+    {
+      key: 'sos',
+      $or: [
+        { value: { $exists: false } },
+        { value: { $lt: latestOnChainSosId } },
+      ],
+    },
+    { $set: { value: latestOnChainSosId } },
+    { new: true, upsert: true },
+  )
+}
+
 const allocateSequenceId = async () => {
   const maxAttempts = 100
+
+  await syncCounterWithOnChain()
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const sequenceId = await getNextSequenceId()
@@ -51,6 +75,19 @@ const allocateSequenceId = async () => {
   }
 
   throw new Error('Failed to allocate an unused SOS sequence ID.')
+}
+
+const waitForActiveSourceSubmission = async (sourceRequestKey) => {
+  const activeSubmission = activeSourceSubmissions.get(sourceRequestKey)
+  if (!activeSubmission) {
+    return
+  }
+
+  try {
+    await activeSubmission.promise
+  } catch {
+    // Ignore the previous submission error and let the current request continue.
+  }
 }
 
 const mergeBlockchainState = (sos, updates) => ({
@@ -132,15 +169,74 @@ router.get('/recent', async (_req, res) => {
 })
 
 router.post('/', async (req, res) => {
+  let releaseActiveSourceSubmission = null
+  let normalizedSourceRequestKey = ''
+
   try {
     const {
       name, message, type, reporterWallet, location,
       priority, suspicious, analysisSummary,
-      keywords, mlScores,
+      keywords, mlScores, sourceRequestKey,
     } = req.body
 
     if (!name || !message || !type) {
       return res.status(400).json({ message: 'Name, message, and type are required.' })
+    }
+
+    normalizedSourceRequestKey =
+      typeof sourceRequestKey === 'string' ? sourceRequestKey.trim() : ''
+
+    if (normalizedSourceRequestKey) {
+      const existingSOS = await SOS.findOne({ sourceRequestKey: normalizedSourceRequestKey })
+      if (existingSOS) {
+        return res.status(200).json({
+          message: 'Duplicate SOS submission ignored. Returning the existing SOS request.',
+          sos: existingSOS,
+          autoAssigned: Boolean(existingSOS.autoAssigned),
+          assignedVolunteer: existingSOS.assignedVolunteer?.name
+            ? { name: existingSOS.assignedVolunteer.name }
+            : null,
+        })
+      }
+
+      await waitForActiveSourceSubmission(normalizedSourceRequestKey)
+
+      const existingAfterWait = await SOS.findOne({ sourceRequestKey: normalizedSourceRequestKey })
+      if (existingAfterWait) {
+        return res.status(200).json({
+          message: 'Duplicate SOS submission ignored. Returning the existing SOS request.',
+          sos: existingAfterWait,
+          autoAssigned: Boolean(existingAfterWait.autoAssigned),
+          assignedVolunteer: existingAfterWait.assignedVolunteer?.name
+            ? { name: existingAfterWait.assignedVolunteer.name }
+            : null,
+        })
+      }
+
+      let resolveActiveSourceSubmission
+      let rejectActiveSourceSubmission
+      const promise = new Promise((resolve, reject) => {
+        resolveActiveSourceSubmission = resolve
+        rejectActiveSourceSubmission = reject
+      })
+
+      activeSourceSubmissions.set(normalizedSourceRequestKey, {
+        promise,
+      })
+
+      releaseActiveSourceSubmission = (error = null) => {
+        const activeSubmission = activeSourceSubmissions.get(normalizedSourceRequestKey)
+        if (!activeSubmission || activeSubmission.promise !== promise) {
+          return
+        }
+
+        activeSourceSubmissions.delete(normalizedSourceRequestKey)
+        if (error) {
+          rejectActiveSourceSubmission(error)
+        } else {
+          resolveActiveSourceSubmission()
+        }
+      }
     }
 
     const normalizedReporterWallet =
@@ -215,6 +311,7 @@ router.post('/', async (req, res) => {
 
     const sos = await SOS.create({
       sequenceId,
+      ...(normalizedSourceRequestKey ? { sourceRequestKey: normalizedSourceRequestKey } : {}),
       name,
       message,
       type,
@@ -328,6 +425,10 @@ router.post('/', async (req, res) => {
     }
 
     return res.status(500).json({ message: 'Failed to create SOS request.', error: error.message })
+  } finally {
+    if (releaseActiveSourceSubmission) {
+      releaseActiveSourceSubmission()
+    }
   }
 })
 

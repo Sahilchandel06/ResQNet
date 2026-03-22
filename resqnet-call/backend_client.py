@@ -49,7 +49,13 @@ def _map_priority(ml_priority: str) -> str:
     return ML_PRIORITY_MAP.get(ml_priority.lower().strip(), "Medium")
 
 
-def build_payload(analysis: dict, caller: str, transcript: str, location: str = "") -> dict:
+def build_payload(
+    analysis: dict,
+    caller: str,
+    transcript: str,
+    location: str = "",
+    source_request_key: str = "",
+) -> dict:
     """
     Build the payload the backend's POST /api/sos route expects.
 
@@ -102,11 +108,16 @@ def build_payload(analysis: dict, caller: str, transcript: str, location: str = 
             "categoryProbability": ml_detail.get("category_probability", {}),
             "priorityProbability": ml_detail.get("priority_probability", {}),
         },
+        "sourceRequestKey": source_request_key.strip(),
     }
 
 
 async def submit_to_backend(
-    analysis: dict, caller: str, transcript: str, location: str = ""
+    analysis: dict,
+    caller: str,
+    transcript: str,
+    location: str = "",
+    source_request_key: str = "",
 ) -> bool:
     """
     POST the mapped payload to the backend's /api/sos route.
@@ -114,7 +125,13 @@ async def submit_to_backend(
     Retries up to MAX_RETRIES times with exponential backoff.
     Returns True on success, False on failure (never raises).
     """
-    payload = build_payload(analysis, caller, transcript, location)
+    payload = build_payload(
+        analysis,
+        caller,
+        transcript,
+        location,
+        source_request_key,
+    )
     url = f"{BACKEND_URL}/api/sos"
 
     print(f"\n📤 Backend payload: {payload}\n")
@@ -124,7 +141,7 @@ async def submit_to_backend(
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(url, json=payload)
 
-            if response.status_code == 201:
+            if response.status_code in {200, 201}:
                 data = response.json()
                 sos_id = data.get("sos", {}).get("sequenceId", "?")
                 print(
@@ -137,6 +154,7 @@ async def submit_to_backend(
                 f"⚠️  Backend returned {response.status_code}: "
                 f"{response.text[:200]} (attempt {attempt}/{MAX_RETRIES})"
             )
+            return False
 
         except Exception as e:
             print(
