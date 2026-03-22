@@ -263,16 +263,14 @@ The `ResQNetProtocol.sol` smart contract acts as an immutable ledger and escrow 
 
 ## 🖼 Screenshots
 
-*(Add your application screenshots in the `/screenshots` folder)*
-
-![Landing Page](screenshots/landing.png)
 *Landing Page with Project Overview*
+![Landing Page](screenshots/landing.png)
 
-![Admin Dashboard](screenshots/dashboard.png)
 *Tactical Dashboard showing live SOS Feeds and ML confidence metrics*
+![Admin Dashboard](screenshots/dashboard.png)
 
+*Detailed view of an individual SOS with map*
 ![SOS Request](screenshots/sos.png)
-*Detailed view of an individual SOS with Blockchain proofs*
 
 ---
 
