@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
-  Filter,
-  Layers,
   MapPin,
   Navigation,
   Route as RouteIcon,
@@ -398,16 +396,6 @@ const TacticalMap = () => {
           </div>
         </div>
 
-        <div className="p-4 border-t border-white/5 grid grid-cols-2 gap-2">
-          <button className="btn-tactical btn-secondary justify-center text-[10px] py-1.5">
-            <Layers className="w-3 h-3" />
-            <span>Markers</span>
-          </button>
-          <button className="btn-tactical btn-secondary justify-center text-[10px] py-1.5">
-            <Filter className="w-3 h-3" />
-            <span>Routes</span>
-          </button>
-        </div>
       </div>
 
       <div className="flex-1 relative bg-bg-base overflow-hidden">

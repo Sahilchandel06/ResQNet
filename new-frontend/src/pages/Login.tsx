@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, ShieldCheck, Wallet } from 'lucide-react';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { clsx, type ClassValue } from 'clsx';
@@ -14,7 +14,7 @@ function cn(...inputs: ClassValue[]) {
 const ROLES: Role[] = ['user', 'admin', 'volunteer'];
 
 const Login = () => {
-  const { enter, connectWallet } = useApp();
+  const { enter } = useApp();
   const navigate = useNavigate();
   const [role, setRole] = useState<Role>('user');
   const [name, setName] = useState('');
@@ -29,14 +29,6 @@ const Login = () => {
     enter(role, name, wallet);
     navigate('/dashboard', { replace: true });
   };
-
-  const handleConnect = async () => {
-    const address = await connectWallet();
-    if (address) {
-      setWallet(address);
-    }
-  };
-
   const particles = Array.from({ length: 20 }).map((_, i) => ({
     id: i,
     size: Math.random() * 4 + 1,
@@ -110,21 +102,13 @@ const Login = () => {
           >
             <div className="pointer-events-none absolute inset-0 scanning-line opacity-5"></div>
             <div className="relative z-10">
-              <div className="mb-6 flex items-center justify-between">
+              <div className="mb-6">
                 <div className="space-y-1">
                   <h3 className="text-xl font-bold tracking-tight">Access Portal</h3>
                   <p className="text-[10px] font-mono uppercase tracking-widest text-text-secondary">
                     Authenticate to Command Center
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleConnect}
-                  className="btn-tactical btn-secondary px-3 py-1.5 text-[10px]"
-                >
-                  <Wallet className="h-3 w-3" />
-                  <span>Connect Wallet</span>
-                </button>
               </div>
 
               <form onSubmit={handleEnter} className="space-y-4">

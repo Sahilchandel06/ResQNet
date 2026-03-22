@@ -5,7 +5,6 @@ import {
   Users,
   ShieldCheck,
   Map as MapIcon,
-  Settings,
   LogOut,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -37,12 +36,7 @@ const Sidebar = () => {
         <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-brand-primary">
           <ShieldCheck className="h-5 w-5 text-white" />
         </div>
-        <div>
-          <h1 className="text-sm font-bold tracking-tight">RESQNET HQ</h1>
-          <p className="text-[10px] font-mono uppercase tracking-widest text-text-secondary">
-            Tactical Command
-          </p>
-        </div>
+        <h1 className="text-sm font-bold tracking-tight">RESQNET HQ</h1>
       </div>
 
       <nav className="flex-1 space-y-1 px-4 py-6">
@@ -65,11 +59,7 @@ const Sidebar = () => {
         ))}
       </nav>
 
-      <div className="space-y-4 border-t border-white/5 p-4">
-        <div className="flex cursor-pointer items-center gap-3 px-3 py-2 text-text-secondary transition-colors hover:text-white">
-          <Settings className="h-4 w-4" />
-          <span className="text-sm">Settings</span>
-        </div>
+      <div className="border-t border-white/5 p-4">
         <button
           type="button"
           onClick={handleLogout}

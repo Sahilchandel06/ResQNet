@@ -1,11 +1,9 @@
 import React from 'react';
-import { Bell, Search, User, Shield, Zap } from 'lucide-react';
+import { Search, User, Zap } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const TopBar = () => {
-  const { session, health } = useApp();
-
-  const dbConnected = health?.database?.connected ?? false;
+  const { session } = useApp();
 
   return (
     <header className="h-16 border-b border-white/5 bg-bg-surface/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-50">
@@ -25,20 +23,6 @@ const TopBar = () => {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2 px-3 py-1 bg-bg-elevated border border-white/5 rounded-sm">
-          <Shield className={`w-3 h-3 ${dbConnected ? 'text-brand-accent' : 'text-brand-primary'}`} />
-          <span className="text-[10px] font-mono text-text-secondary uppercase tracking-widest">
-            {dbConnected ? 'Network Secure' : 'DB Offline'}
-          </span>
-        </div>
-
-        <button className="p-2 hover:bg-white/5 rounded-full relative transition-colors">
-          <Bell className="w-4 h-4 text-text-secondary" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand-primary rounded-full border-2 border-bg-surface"></span>
-        </button>
-
-        <div className="h-8 w-px bg-white/5 mx-2"></div>
-
         <div className="flex items-center gap-3 pl-2 cursor-pointer group">
           <div className="text-right">
             <p className="text-xs font-medium group-hover:text-brand-primary transition-colors">
