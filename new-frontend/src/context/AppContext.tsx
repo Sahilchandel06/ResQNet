@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { ethers } from 'ethers';
 import type { HealthData, Role, SOSRequest, Session, Web3Status } from '../types';
 import * as api from '../api';
+import { markLoggedInBefore, markVisitedBefore } from '../utils/navigationState';
 
 interface AppState {
   session: Session | null;
@@ -63,6 +64,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, [authReady, session]);
 
   const enter = useCallback((role: Role, name: string, wallet: string) => {
+    markLoggedInBefore();
+    markVisitedBefore();
+
     setSession({
       role,
       name: name.trim(),

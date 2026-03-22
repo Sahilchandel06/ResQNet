@@ -25,6 +25,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import SOSFeed from './pages/SOSFeed';
+import SystemHealth from './pages/SystemHealth';
 import TacticalMap from './pages/TacticalMap';
 import Volunteers from './pages/Volunteers';
 
@@ -126,6 +127,7 @@ const AppRoutes = () => {
           <Route element={<AnimatedDashboardRoutes />}>
             <Route path="/dashboard" element={<SOSFeed />} />
             <Route path="/map" element={<TacticalMap />} />
+            <Route path="/system-health" element={<SystemHealth />} />
             <Route path="/volunteers" element={<VolunteersRoute />} />
           </Route>
         </Route>

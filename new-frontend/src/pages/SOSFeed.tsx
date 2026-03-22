@@ -238,7 +238,7 @@ const SOSFeed = () => {
 
       {/* Main Content Area */}
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-bold tracking-tight">
               {session?.role === 'user' ? 'My SOS Requests' : session?.role === 'volunteer' ? 'Assigned Tasks' : 'All SOS Requests'}
@@ -251,14 +251,14 @@ const SOSFeed = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center bg-bg-elevated border border-white/5 rounded-sm p-1">
               {['All', 'Critical', 'High', 'Medium', 'Low'].map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
                   className={cn(
-                    "px-3 py-1 text-[10px] font-mono uppercase tracking-widest rounded-sm transition-all",
+                    "px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest rounded-sm transition-all",
                     filter === f ? "bg-white/10 text-white" : "text-text-secondary hover:text-white"
                   )}
                 >
@@ -266,12 +266,12 @@ const SOSFeed = () => {
                 </button>
               ))}
             </div>
-            <button onClick={refresh} className="btn-tactical btn-secondary">
+            <button onClick={refresh} className="btn-tactical btn-secondary px-3 py-1.5 text-xs">
               <Activity className="w-3 h-3" />
               <span>Refresh</span>
             </button>
             {session?.role === 'user' && (
-              <button onClick={() => setShowCreateModal(true)} className="btn-tactical btn-primary">
+              <button onClick={() => setShowCreateModal(true)} className="btn-tactical btn-primary px-3 py-1.5 text-xs">
                 <Plus className="w-3 h-3" />
                 <span>New SOS</span>
               </button>
@@ -360,7 +360,7 @@ const SOSFeed = () => {
                 </div>
 
                 {/* Keywords */}
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 pl-2">
                   {req.keywords?.slice(0, 3).map((kw, ki) => (
                     <span key={ki} className="px-2 py-0.5 text-[8px] font-mono bg-brand-secondary/10 text-brand-secondary border border-brand-secondary/20 rounded-sm uppercase tracking-widest">
                       {kw}
@@ -368,7 +368,7 @@ const SOSFeed = () => {
                   ))}
                   <button
                     onClick={() => setSelectedRequest(req)}
-                    className="p-2 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 rounded-sm transition-colors"
+                    className="p-2 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 rounded-sm transition-colors shrink-0"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -377,10 +377,10 @@ const SOSFeed = () => {
 
               {/* ── Admin Controls ── */}
               {session?.role === 'admin' && (
-                <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-2 gap-4 relative z-10">
+                <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-1 xl:grid-cols-2 gap-4 relative z-10">
 
                   {/* Assign column: conditional on auto-assignment status */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 rounded-sm border border-white/5 bg-bg-elevated/35 p-3">
                     {isAutoAssigned(req) ? (
                       /* ── Auto-Assigned Display ── */
                       <div className="space-y-2">
@@ -434,7 +434,7 @@ const SOSFeed = () => {
                           value={assignDrafts[req._id]?.volunteerWallet || ''}
                           onChange={(e) => setAssignDrafts((c) => ({ ...c, [req._id]: { ...(c[req._id] || { volunteerName: '', volunteerWallet: '' }), volunteerWallet: e.target.value } }))}
                         />
-                        <button onClick={() => handleAssign(req._id)} className="btn-tactical btn-secondary text-[10px] w-full justify-center py-1.5">
+                        <button onClick={() => handleAssign(req._id)} className="btn-tactical btn-secondary text-[10px] px-3 py-1.5 justify-center">
                           <UserPlus className="w-3 h-3" />
                           <span>Assign Manually</span>
                         </button>
@@ -467,7 +467,7 @@ const SOSFeed = () => {
                           value={assignDrafts[req._id]?.volunteerWallet || req.assignedVolunteer?.wallet || ''}
                           onChange={(e) => setAssignDrafts((c) => ({ ...c, [req._id]: { ...(c[req._id] || { volunteerName: '', volunteerWallet: '' }), volunteerWallet: e.target.value } }))}
                         />
-                        <button onClick={() => handleAssign(req._id)} className="btn-tactical btn-secondary text-[10px] w-full justify-center py-1.5">
+                        <button onClick={() => handleAssign(req._id)} className="btn-tactical btn-secondary text-[10px] px-3 py-1.5 justify-center">
                           <UserPlus className="w-3 h-3" />
                           <span>Assign</span>
                         </button>
@@ -476,7 +476,7 @@ const SOSFeed = () => {
                   </div>
 
                   {/* Finalize column — unchanged */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 rounded-sm border border-white/5 bg-bg-elevated/35 p-3">
                     <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-widest">Admin Finalize</p>
                     <textarea
                       className="w-full bg-bg-elevated border border-white/5 rounded-sm px-3 py-1.5 text-xs min-h-[60px] resize-none focus:outline-none focus:border-brand-primary/50"
@@ -484,13 +484,13 @@ const SOSFeed = () => {
                       value={adminNotes[req._id] || ''}
                       onChange={(e) => setAdminNotes((c) => ({ ...c, [req._id]: e.target.value }))}
                     />
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {VERDICTS.map((v) => (
                         <button
                           key={v}
                           onClick={() => handleAdminFinalize(req._id, v)}
                           disabled={!req.volunteerVerification?.status || req.finalStatus !== 'pending'}
-                          className="btn-tactical btn-primary text-[10px] flex-1 justify-center py-1.5 disabled:opacity-30"
+                          className="btn-tactical btn-primary text-[10px] px-3 py-1.5 justify-center disabled:opacity-30"
                         >
                           <span>Finalize {v}</span>
                         </button>
@@ -501,7 +501,7 @@ const SOSFeed = () => {
               )}
 
               {session?.role === 'volunteer' && (
-                <div className="mt-4 pt-4 border-t border-white/5 space-y-2 relative z-10">
+                <div className="mt-4 pt-4 border-t border-white/5 space-y-2 relative z-10 rounded-sm border border-white/5 bg-bg-elevated/35 p-3">
                   <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-widest">Volunteer Report</p>
                   <textarea
                     className="w-full bg-bg-elevated border border-white/5 rounded-sm px-3 py-1.5 text-xs min-h-[48px] resize-none focus:outline-none focus:border-brand-primary/50"
@@ -509,13 +509,13 @@ const SOSFeed = () => {
                     value={volunteerNotes[req._id] || ''}
                     onChange={(e) => setVolunteerNotes((c) => ({ ...c, [req._id]: e.target.value }))}
                   />
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {VERDICTS.map((v) => (
                       <button
                         key={v}
                         onClick={() => handleVolunteerReport(req._id, v)}
                         disabled={Boolean(req.volunteerVerification?.status) || req.finalStatus !== 'pending'}
-                        className="btn-tactical btn-secondary text-[10px] flex-1 justify-center py-1.5 disabled:opacity-30"
+                        className="btn-tactical btn-secondary text-[10px] px-3 py-1.5 justify-center disabled:opacity-30"
                       >
                         <span>Mark {v}</span>
                       </button>

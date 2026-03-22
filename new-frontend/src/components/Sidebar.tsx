@@ -5,6 +5,7 @@ import {
   Users,
   ShieldCheck,
   Map as MapIcon,
+  Activity,
   LogOut,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -22,6 +23,7 @@ const Sidebar = () => {
   const navItems = [
     { icon: LayoutDashboard, label: 'SOS Feed', path: '/dashboard' },
     { icon: MapIcon, label: 'Tactical Map', path: '/map' },
+    { icon: Activity, label: 'System Health', path: '/system-health' },
     ...(session?.role === 'volunteer' ? [] : [{ icon: Users, label: 'Volunteers', path: '/volunteers' }]),
   ];
 

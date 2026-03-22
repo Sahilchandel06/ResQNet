@@ -54,7 +54,7 @@
   }
   
   .btn-secondary {
-    @apply bg-bg-elevated hover:bg-white/10 text-white border border-white/10;
+    @apply bg-brand-secondary/15 hover:bg-brand-secondary/25 text-brand-secondary hover:text-white border border-brand-secondary/35 shadow-lg shadow-blue-900/20;
   }
 
   .scanning-line {

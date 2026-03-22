@@ -1,24 +1,10 @@
 import React, { useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-
-export const HAS_VISITED_BEFORE_KEY = 'resqnet-has-visited-before';
-
-const hasVisitedBefore = (): boolean => {
-  try {
-    return localStorage.getItem(HAS_VISITED_BEFORE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-};
-
-const markVisitedBefore = (): void => {
-  try {
-    localStorage.setItem(HAS_VISITED_BEFORE_KEY, 'true');
-  } catch {
-    // Ignore storage failures and fall back to current-session navigation only.
-  }
-};
+import {
+  hasLoggedInBefore,
+  markVisitedBefore,
+} from '../utils/navigationState';
 
 const BootScreen = () => (
   <div className="min-h-screen bg-bg-base" />
@@ -26,32 +12,28 @@ const BootScreen = () => (
 
 export const AppEntryRoute = () => {
   const { session, authReady } = useApp();
-  const visited = hasVisitedBefore();
+  const loggedInBefore = hasLoggedInBefore();
 
   if (!authReady) {
     return <BootScreen />;
   }
 
   if (session) {
-    if (!visited) {
-      markVisitedBefore();
-    }
+    markVisitedBefore();
 
     return <Navigate to="/dashboard" replace />;
   }
 
-  return <Navigate to={visited ? '/login' : '/landing'} replace />;
+  return <Navigate to={loggedInBefore ? '/login' : '/landing'} replace />;
 };
 
 export const LandingRoute = () => {
   const { session, authReady } = useApp();
-  const visited = hasVisitedBefore();
+  const loggedInBefore = hasLoggedInBefore();
 
   useEffect(() => {
-    if (!visited) {
-      markVisitedBefore();
-    }
-  }, [visited]);
+    markVisitedBefore();
+  }, []);
 
   if (!authReady) {
     return <BootScreen />;
@@ -61,7 +43,7 @@ export const LandingRoute = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (visited) {
+  if (loggedInBefore) {
     return <Navigate to="/login" replace />;
   }
 
@@ -79,22 +61,19 @@ export const PublicOnlyRoute = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (!hasVisitedBefore()) {
-    return <Navigate to="/landing" replace />;
-  }
-
   return <Outlet />;
 };
 
 export const ProtectedRoute = () => {
   const { session, authReady } = useApp();
+  const loggedInBefore = hasLoggedInBefore();
 
   if (!authReady) {
     return <BootScreen />;
   }
 
   if (!session) {
-    return <Navigate to={hasVisitedBefore() ? '/login' : '/landing'} replace />;
+    return <Navigate to={loggedInBefore ? '/login' : '/landing'} replace />;
   }
 
   return <Outlet />;
