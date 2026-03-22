@@ -84,6 +84,19 @@ const shapeReceipt = async (receipt, extra = {}) => ({
   ...extra,
 })
 
+const sosExistsOnChain = async (sosId) => {
+  if (!hasBlockchainConfig()) {
+    return false
+  }
+
+  try {
+    const { contract } = getContract()
+    return await contract.sosExists(sosId)
+  } catch {
+    return false
+  }
+}
+
 const createSOSOnChain = async ({ sosId, reporterName, reporterWallet, message, emergencyType, priority, suspicious }) => {
   if (!hasBlockchainConfig()) {
     return { logged: false, reason: 'Blockchain environment variables are not configured.' }
@@ -303,6 +316,7 @@ const getProtocolStatus = async () => {
 
 module.exports = {
   hasBlockchainConfig,
+  sosExistsOnChain,
   createSOSOnChain,
   assignVolunteerOnChain,
   volunteerReportOnChain,

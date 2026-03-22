@@ -1,16 +1,19 @@
 const mongoose = require('mongoose')
 
-const DEFAULT_URI = 'mongodb://127.0.0.1:27017/resqnet'
-
 const connectDB = async () => {
-  const mongoUri = process.env.MONGO_URI || DEFAULT_URI
+  const mongoUri = process.env.MONGO_URI
+
+  if (!mongoUri) {
+    console.warn('MongoDB connection skipped: set MONGO_URI to your MongoDB Atlas connection string.')
+    return false
+  }
 
   try {
     await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 10000,
     })
 
-    console.log(`MongoDB connected: ${mongoose.connection.host}`)
+    console.log(`MongoDB connected: ${mongoose.connection.name} @ ${mongoose.connection.host}`)
     return true
   } catch (error) {
     console.warn(`MongoDB connection failed: ${error.message}`)

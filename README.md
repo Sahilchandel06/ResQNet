@@ -48,6 +48,18 @@ Backend env file:
 Copy-Item .\backend\.env.example .\backend\.env
 ```
 
+For MongoDB Atlas, set `MONGO_URI` in `backend/.env` to your Atlas connection string, for example:
+
+```powershell
+MONGO_URI=mongodb+srv://<db-user>:<db-password>@<cluster-name>.mongodb.net/resqnet?retryWrites=true&w=majority&appName=ResQNet
+```
+
+Atlas checklist:
+
+- Create a database user in Atlas.
+- Add your app server IP to Atlas Network Access, or use `0.0.0.0/0` temporarily for testing.
+- Put the database name at the end of the URI, for example `resqnet`.
+
 Root env file for contract tooling:
 
 ```powershell

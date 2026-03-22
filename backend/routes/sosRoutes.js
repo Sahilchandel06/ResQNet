@@ -8,6 +8,7 @@ const { analyzeSOS } = require('../services/aiService')
 const { geocodeWithFallback } = require('../utils/geocode')
 const { findNearestVolunteer, haversineDistance } = require('../utils/assignVolunteer')
 const {
+  sosExistsOnChain,
   createSOSOnChain,
   assignVolunteerOnChain,
   volunteerReportOnChain,
@@ -26,6 +27,29 @@ const getNextSequenceId = async () => {
   )
 
   return counter.value
+}
+
+const allocateSequenceId = async () => {
+  const maxAttempts = 100
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const sequenceId = await getNextSequenceId()
+    const existsInMongo = await SOS.exists({ sequenceId })
+
+    if (existsInMongo) {
+      continue
+    }
+
+    const existsOnChain = await sosExistsOnChain(sequenceId)
+    if (existsOnChain) {
+      console.warn(`[SequenceAllocator] Skipping SOS #${sequenceId} because it already exists on-chain.`)
+      continue
+    }
+
+    return sequenceId
+  }
+
+  throw new Error('Failed to allocate an unused SOS sequence ID.')
 }
 
 const mergeBlockchainState = (sos, updates) => ({
@@ -111,7 +135,7 @@ router.post('/', async (req, res) => {
       typeof suspicious === 'boolean' ? suspicious : heuristic.suspicious
     const resolvedSummary = analysisSummary || heuristic.analysisSummary
 
-    const sequenceId = await getNextSequenceId()
+    let sequenceId = await allocateSequenceId()
 
     // --- Silent geocoding (never blocks the request) ---
     // Attempt 1: full location string; Attempt 2: simplified string.
@@ -135,18 +159,38 @@ router.post('/', async (req, res) => {
     }
     // --- End of silent geocoding ---
 
-    const chainResult = await createSOSOnChain({
-      sosId: sequenceId,
-      reporterName: name,
-      reporterWallet: normalizedReporterWallet,
-      message,
-      emergencyType: type,
-      priority: resolvedPriority,
-      suspicious: resolvedSuspicious,
-    })
+    let chainResult = null
+    let createAttempts = 0
 
-    if (!chainResult.logged) {
-      return res.status(502).json({ message: chainResult.reason })
+    while (createAttempts < 5) {
+      createAttempts += 1
+
+      chainResult = await createSOSOnChain({
+        sosId: sequenceId,
+        reporterName: name,
+        reporterWallet: normalizedReporterWallet,
+        message,
+        emergencyType: type,
+        priority: resolvedPriority,
+        suspicious: resolvedSuspicious,
+      })
+
+      if (chainResult.logged) {
+        break
+      }
+
+      if (!chainResult.reason?.includes('already exists on-chain')) {
+        return res.status(502).json({ message: chainResult.reason })
+      }
+
+      console.warn(
+        `[SequenceAllocator] createSOS collision for SOS #${sequenceId}. Allocating a newer ID and retrying.`,
+      )
+      sequenceId = await allocateSequenceId()
+    }
+
+    if (!chainResult?.logged) {
+      return res.status(502).json({ message: chainResult?.reason || 'Failed to create SOS on-chain.' })
     }
 
     const sos = await SOS.create({
