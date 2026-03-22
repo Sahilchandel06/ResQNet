@@ -75,8 +75,8 @@ Unlike existing 911/SOS systems that rely purely on manual operator routing, Res
     (Auto-Assigns Nearest)    │ (Writes Tx)
            ▼                  ▼
  ┌──────────────────┐ ┌──────────────────────────────────────────┐
- │ Volunteer Engine │ │        Smart Contract (Ethereum)         │
- │(Haversine Calc)  │ │ (Logging, Reputation, ETH Micro-Rewards) │
+ │   path Engine    │ │        Smart Contract (Ethereum)         │
+ │     (OSRM)       │ │      (Logging, ETH Mcro-Rewards)         │
  └──────────────────┘ └──────────────────────────────────────────┘
            ▲
            │ (WebSocket / API Polling)
