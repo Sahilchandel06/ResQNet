@@ -15,6 +15,7 @@ import MapDashboard from '../components/MapDashboard';
 import { fetchAssignmentDetails } from '../api';
 import { useApp } from '../context/AppContext';
 import { maskPhoneInLabel } from '../utils/maskPhone';
+import { getRoute } from '../utils/mapHelpers';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -191,6 +192,23 @@ const TacticalMap = () => {
         const estimatedVolunteer = !liveVolunteerCoord && !!volunteerCoord;
         const hasVolunteerIdentity = !!(details.assignedVolunteer || request.assignedVolunteer);
 
+        let resolvedRoute: LatLng[] | null = null;
+        let routeFallbackMessage = '';
+
+        if (sosCoord && volunteerCoord) {
+          const liveRoute = await getRoute(volunteerCoord, sosCoord);
+          if (liveRoute && liveRoute.length > 0) {
+            resolvedRoute = liveRoute;
+          } else {
+            resolvedRoute = buildSampleRoute(volunteerCoord, sosCoord);
+            routeFallbackMessage = 'Road geometry was unavailable, so the map is showing a fallback response path.';
+          }
+        }
+
+        if (cancelled) {
+          return;
+        }
+
         setSelectedAssignment(details);
         setMapIncidents(sosCoord ? [{ ...incident, coordinates: sosCoord }] : []);
         setMapVolunteers(
@@ -198,8 +216,11 @@ const TacticalMap = () => {
             ? [buildVolunteerMarker(request, details, volunteerCoord, estimatedVolunteer)]
             : [],
         );
-        setDrawnRoute(sosCoord && volunteerCoord ? buildSampleRoute(volunteerCoord, sosCoord) : null);
+        setDrawnRoute(resolvedRoute);
         setRouteMode(volunteerCoord ? (estimatedVolunteer ? 'sample' : 'live') : 'none');
+        if (routeFallbackMessage) {
+          setMapError(routeFallbackMessage);
+        }
       } catch (error) {
         if (cancelled) {
           return;
@@ -374,7 +395,7 @@ const TacticalMap = () => {
                     {loadingMap
                       ? 'Linking positions...'
                       : routeMode === 'live'
-                        ? 'Two live markers with sample response path'
+                        ? 'Two live markers with road response path'
                         : routeMode === 'sample'
                           ? 'Two markers with estimated volunteer path'
                           : 'Waiting for route data'}
@@ -445,14 +466,14 @@ const TacticalMap = () => {
                 {loadingMap
                   ? 'Loading assignment geometry'
                   : routeMode === 'live'
-                    ? 'Volunteer location found'
+                    ? 'Live route geometry loaded'
                     : routeMode === 'sample'
                       ? 'Sample volunteer route rendered'
                       : 'No pair selected'}
               </p>
               <p className="text-[10px] text-text-secondary mt-1">
                 {routeMode === 'live'
-                  ? 'The map is using the SOS and registered volunteer coordinates.'
+                  ? 'The map is using SOS and volunteer coordinates with a road-based route.'
                   : routeMode === 'sample'
                     ? 'The volunteer marker is estimated so the SOS still renders with a usable path.'
                     : 'Select an assigned SOS to show both markers.'}

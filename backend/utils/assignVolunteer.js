@@ -1,12 +1,15 @@
 /**
  * assignVolunteer.js
  * Finds the nearest available volunteer within 50 km of the given SOS coordinates.
- * Uses pure Haversine math — no external APIs.
+ * Prefers OSRM road distance/duration and falls back to Haversine when needed.
  */
 
+const axios = require('axios')
 const Volunteer = require('../models/Volunteer')
 
 const MAX_RADIUS_KM = 50
+const OSRM_ROUTE_BASE_URL = process.env.OSRM_ROUTE_BASE_URL || 'https://router.project-osrm.org/route/v1/driving'
+const OSRM_TIMEOUT_MS = 6000
 
 /**
  * Haversine formula — returns distance in km between two lat/lng points.
@@ -23,6 +26,53 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
         Math.sin(dLng / 2)
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
     return R * c
+}
+
+/**
+ * Fetch road distance + duration between two coordinates from OSRM.
+ * Returns null when OSRM cannot provide a route.
+ *
+ * @param {{ lat: number, lng: number }} start
+ * @param {{ lat: number, lng: number }} end
+ * @returns {Promise<{ distanceKm: number, durationMin: number } | null>}
+ */
+async function getRoadMetrics(start, end) {
+    if (
+        !start ||
+        !end ||
+        start.lat == null ||
+        start.lng == null ||
+        end.lat == null ||
+        end.lng == null
+    ) {
+        return null
+    }
+
+    try {
+        const url = `${OSRM_ROUTE_BASE_URL}/${start.lng},${start.lat};${end.lng},${end.lat}`
+        const response = await axios.get(url, {
+            params: {
+                overview: 'false',
+                alternatives: 'false',
+                steps: 'false',
+                annotations: 'false',
+            },
+            timeout: OSRM_TIMEOUT_MS,
+        })
+
+        const route = response.data?.routes?.[0]
+        if (!route || typeof route.distance !== 'number' || typeof route.duration !== 'number') {
+            return null
+        }
+
+        return {
+            distanceKm: route.distance / 1000,
+            durationMin: route.duration / 60,
+        }
+    } catch (err) {
+        console.warn('[routing] OSRM route lookup failed:', err.message)
+        return null
+    }
 }
 
 /**
@@ -53,6 +103,8 @@ async function findNearestVolunteer(sosCoordinates) {
 
     let nearest = null
     let nearestDistance = Infinity
+    let nearestDurationMin = Infinity
+    let nearestMetricSource = 'haversine'
 
     for (const volunteer of availableVolunteers) {
         const vLat = volunteer.coordinates?.lat
@@ -65,18 +117,36 @@ async function findNearestVolunteer(sosCoordinates) {
 
         const distance = haversineDistance(sosLat, sosLng, vLat, vLng)
 
-        if (distance < nearestDistance) {
-            nearestDistance = distance
+        const roadMetrics = await getRoadMetrics(
+            { lat: vLat, lng: vLng },
+            { lat: sosLat, lng: sosLng },
+        )
+
+        const effectiveDistanceKm = roadMetrics?.distanceKm ?? distance
+        const effectiveDurationMin = roadMetrics?.durationMin ?? ((distance / 35) * 60)
+
+        if (effectiveDistanceKm > MAX_RADIUS_KM) {
+            continue
+        }
+
+        if (effectiveDurationMin < nearestDurationMin) {
+            nearestDurationMin = effectiveDurationMin
+            nearestDistance = effectiveDistanceKm
             nearest = volunteer
+            nearestMetricSource = roadMetrics ? 'road' : 'haversine'
         }
     }
 
-    // Apply 50 km radius filter
-    if (!nearest || nearestDistance > MAX_RADIUS_KM) {
+    if (!nearest) {
         return null
     }
 
-    return { volunteer: nearest, distanceKm: nearestDistance }
+    return {
+        volunteer: nearest,
+        distanceKm: nearestDistance,
+        durationMin: nearestDurationMin,
+        metricSource: nearestMetricSource,
+    }
 }
 
-module.exports = { findNearestVolunteer, haversineDistance }
+module.exports = { findNearestVolunteer, haversineDistance, getRoadMetrics }

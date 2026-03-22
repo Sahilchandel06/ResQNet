@@ -7,7 +7,7 @@ const Volunteer = require('../models/Volunteer')
 const { analyzeSOS } = require('../services/aiService')
 const { sendAssignmentSms } = require('../services/notificationService')
 const { geocodeWithFallback } = require('../utils/geocode')
-const { findNearestVolunteer, haversineDistance } = require('../utils/assignVolunteer')
+const { findNearestVolunteer, haversineDistance, getRoadMetrics } = require('../utils/assignVolunteer')
 const {
   getLatestOnChainSosId,
   sosExistsOnChain,
@@ -355,7 +355,7 @@ router.post('/', async (req, res) => {
       const result = await findNearestVolunteer(sosCoordinates)
 
       if (result) {
-        const { volunteer, distanceKm } = result
+        const { volunteer, distanceKm, durationMin, metricSource } = result
         const assignedAt = new Date()
 
         // Update the SOS document
@@ -388,10 +388,12 @@ router.post('/', async (req, res) => {
         autoAssignedInfo = {
           name: volunteer.name,
           distance: `${distanceKm.toFixed(1)} km`,
+          etaMinutes: Number.isFinite(durationMin) ? Math.round(durationMin) : null,
+          metricSource,
         }
 
         console.log(
-          `[AutoAssign] SOS #${sequenceId} → volunteer "${volunteer.name}" (${distanceKm.toFixed(1)} km away)`,
+          `[AutoAssign] SOS #${sequenceId} → volunteer "${volunteer.name}" (${distanceKm.toFixed(1)} km, ${Math.round(durationMin)} min, ${metricSource})`,
         )
         if (!chainAssignResult.logged) {
           console.error(
@@ -525,6 +527,8 @@ router.get('/:id/assignment', async (req, res) => {
     }).lean()
 
     let distanceFromSOS = null
+    let etaFromSOS = null
+    let distanceMetricSource = null
     if (
       volunteer &&
       volunteer.coordinates?.lat != null &&
@@ -532,13 +536,26 @@ router.get('/:id/assignment', async (req, res) => {
       sos.coordinates?.lat != null &&
       sos.coordinates?.lng != null
     ) {
-      const km = haversineDistance(
-        sos.coordinates.lat,
-        sos.coordinates.lng,
-        volunteer.coordinates.lat,
-        volunteer.coordinates.lng,
+      const roadMetrics = await getRoadMetrics(
+        { lat: volunteer.coordinates.lat, lng: volunteer.coordinates.lng },
+        { lat: sos.coordinates.lat, lng: sos.coordinates.lng },
       )
-      distanceFromSOS = `${km.toFixed(1)} km`
+
+      if (roadMetrics) {
+        distanceFromSOS = `${roadMetrics.distanceKm.toFixed(1)} km`
+        etaFromSOS = `${Math.round(roadMetrics.durationMin)} min`
+        distanceMetricSource = 'road'
+      } else {
+        const km = haversineDistance(
+          sos.coordinates.lat,
+          sos.coordinates.lng,
+          volunteer.coordinates.lat,
+          volunteer.coordinates.lng,
+        )
+        distanceFromSOS = `${km.toFixed(1)} km`
+        etaFromSOS = `${Math.round((km / 35) * 60)} min`
+        distanceMetricSource = 'haversine'
+      }
     }
 
     return res.json({
@@ -554,11 +571,15 @@ router.get('/:id/assignment', async (req, res) => {
           location: volunteer.location,
           coordinates: volunteer.coordinates,
           distanceFromSOS,
+          etaFromSOS,
+          distanceMetricSource,
         }
         : {
           name: sos.assignedVolunteer.name,
           wallet: sos.assignedVolunteer.wallet,
           distanceFromSOS: null,
+          etaFromSOS: null,
+          distanceMetricSource: null,
         },
       autoAssigned:
         typeof sos.autoAssigned === 'boolean'
