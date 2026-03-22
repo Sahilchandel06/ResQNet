@@ -333,8 +333,9 @@ const Volunteers = () => {
                     value={formData.phone}
                     onChange={e => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full bg-black/40 border border-white/10 rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-brand-primary/50 transition-colors"
-                    placeholder="+1 (555) 000-0000"
+                    placeholder="+919876543210"
                   />
+                  <p className="text-[10px] text-text-tertiary mt-1">Use E.164 format only, for example +919876543210.</p>
                 </div>
 
                 <div className="space-y-1">

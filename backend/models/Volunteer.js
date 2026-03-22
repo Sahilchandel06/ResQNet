@@ -1,4 +1,5 @@
 const mongoose = require('mongoose')
+const { normalizePhoneToE164, isE164Phone } = require('../utils/phone')
 
 const volunteerSchema = new mongoose.Schema(
     {
@@ -11,6 +12,11 @@ const volunteerSchema = new mongoose.Schema(
             type: String,
             required: true,
             trim: true,
+            set: normalizePhoneToE164,
+            validate: {
+                validator: isE164Phone,
+                message: 'Phone number must be in E.164 format, for example +919876543210.',
+            },
         },
         location: {
             type: String,

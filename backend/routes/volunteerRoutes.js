@@ -3,6 +3,7 @@ const { ethers } = require('ethers')
 
 const Volunteer = require('../models/Volunteer')
 const { geocodeWithFallback } = require('../utils/geocode')
+const { normalizePhoneToE164, isE164Phone } = require('../utils/phone')
 
 const router = express.Router()
 
@@ -26,6 +27,14 @@ router.post('/', async (req, res) => {
             })
         }
 
+        const normalizedPhone = normalizePhoneToE164(phone)
+        if (!isE164Phone(normalizedPhone)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Phone number must be in E.164 format, for example +919876543210.',
+            })
+        }
+
         // Geocode the location — two attempts: full string, then simplified
         const coords = await geocodeWithFallback(location)
 
@@ -39,7 +48,7 @@ router.post('/', async (req, res) => {
 
         const volunteer = await Volunteer.create({
             name: name.trim(),
-            phone: phone.trim(),
+            phone: normalizedPhone,
             location: location.trim(),
             wallet: wallet.trim(),
             isAvailable: typeof isAvailable === 'boolean' ? isAvailable : true,

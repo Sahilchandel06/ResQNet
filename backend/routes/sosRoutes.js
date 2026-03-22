@@ -5,6 +5,7 @@ const Counter = require('../models/Counter')
 const SOS = require('../models/SOS')
 const Volunteer = require('../models/Volunteer')
 const { analyzeSOS } = require('../services/aiService')
+const { sendAssignmentSms } = require('../services/notificationService')
 const { geocodeWithFallback } = require('../utils/geocode')
 const { findNearestVolunteer, haversineDistance } = require('../utils/assignVolunteer')
 const {
@@ -72,6 +73,25 @@ const markBlockchainError = (sos, reason) => {
   sos.blockchain = mergeBlockchainState(sos, {
     lastError: reason,
   })
+}
+
+const notifyAssignedVolunteer = async ({ volunteer, sos }) => {
+  const smsResult = await sendAssignmentSms({
+    to: volunteer.phone,
+    volunteerName: volunteer.name,
+    sos,
+  })
+
+  if (smsResult.sent) {
+    console.log(
+      `[AssignmentSMS] Sent assignment SMS for SOS #${sos.sequenceId} to "${volunteer.name}" (${volunteer.phone}). SID: ${smsResult.sid}`,
+    )
+    return
+  }
+
+  console.error(
+    `[AssignmentSMS] Failed to send assignment SMS for SOS #${sos.sequenceId} to "${volunteer.name}": ${smsResult.reason}`,
+  )
 }
 
 const syncAssignedVolunteerOnChain = async (sos, { volunteerName, volunteerWallet, assignedBy }) => {
@@ -261,6 +281,12 @@ router.post('/', async (req, res) => {
         // Mark the volunteer as unavailable so they are not double-assigned
         await Volunteer.findByIdAndUpdate(volunteer._id, { isAvailable: false })
 
+        try {
+          await notifyAssignedVolunteer({ volunteer, sos })
+        } catch (smsErr) {
+          console.error('[AutoAssign] SMS notification error (non-fatal):', smsErr)
+        }
+
         autoAssigned = true
         autoAssignedInfo = {
           name: volunteer.name,
@@ -345,12 +371,21 @@ router.put('/:id/assign', async (req, res) => {
 
     // Also mark the volunteer as unavailable if we can find them by wallet
     try {
-      await Volunteer.findOneAndUpdate(
+      const assignedVolunteerRecord = await Volunteer.findOneAndUpdate(
         { wallet: { $regex: new RegExp(`^${volunteerWallet}$`, 'i') } },
         { isAvailable: false },
+        { new: true },
       )
+
+      if (assignedVolunteerRecord) {
+        await notifyAssignedVolunteer({ volunteer: assignedVolunteerRecord, sos })
+      } else {
+        console.warn(
+          `[AssignmentSMS] Volunteer "${volunteerName}" with wallet ${volunteerWallet} was assigned but no volunteer record was found for SMS delivery.`,
+        )
+      }
     } catch (vErr) {
-      console.error('[ManualAssign] Could not update volunteer availability:', vErr)
+      console.error('[ManualAssign] Could not update volunteer availability / SMS notification:', vErr)
     }
 
     return res.json({
