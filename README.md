@@ -284,15 +284,4 @@ Contributions make the open-source community an amazing place to learn, inspire,
 
 ---
 
-## 👥 Team
 
-| Name | Role | GitHub |
-| :--- | :--- | :--- |
-| **Name TBD** | Full-Stack Developer | [Link](#) |
-| **Name TBD** | AI/ML Engineer | [Link](#) |
-| **Name TBD** | Blockchain Specialist| [Link](#) |
-
----
-
-## 📄 License
-This project is licensed under the MIT License - see the `LICENSE` (or `package.json`) file for details.
