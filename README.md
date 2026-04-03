@@ -1,5 +1,5 @@
 ﻿<div align="center">
-  <h1>ðŸš¨ ResQNet</h1>
+  <h1>ResQNet</h1>
   <p><em>AI-Powered, Blockchain-Verified Emergency Response & Volunteer Coordination System</em></p>
   
   ![Status](https://img.shields.io/badge/Status-In%20Development-blue)
