@@ -7,7 +7,13 @@ const Volunteer = require('../models/Volunteer')
 const { analyzeSOS } = require('../services/aiService')
 const { sendAssignmentSms } = require('../services/notificationService')
 const { geocodeWithFallback } = require('../utils/geocode')
-const { findNearestVolunteer, haversineDistance, getRoadMetrics } = require('../utils/assignVolunteer')
+const {
+  findNearestVolunteer,
+  findAndClaimNearestVolunteer,
+  releaseVolunteerClaim,
+  haversineDistance,
+  getRoadMetrics,
+} = require('../utils/assignVolunteer')
 const {
   getLatestOnChainSosId,
   sosExistsOnChain,
@@ -350,13 +356,17 @@ router.post('/', async (req, res) => {
     // The SOS is already saved; auto-assignment is best-effort.
     let autoAssigned = false
     let autoAssignedInfo = null
+    let claimedVolunteerId = null
+    let shouldReleaseVolunteerClaim = false
 
     try {
-      const result = await findNearestVolunteer(sosCoordinates)
+      const result = await findAndClaimNearestVolunteer(sosCoordinates)
 
       if (result) {
         const { volunteer, distanceKm, durationMin, metricSource } = result
         const assignedAt = new Date()
+        claimedVolunteerId = volunteer._id
+        shouldReleaseVolunteerClaim = true
 
         // Update the SOS document
         sos.assignedVolunteer = {
@@ -373,16 +383,26 @@ router.post('/', async (req, res) => {
           assignedBy: AUTO_ASSIGNMENT_SOURCE,
         })
 
-        await sos.save()
+        if (!chainAssignResult.logged) {
+          sos.assignedVolunteer = undefined
+          sos.status = 'pending'
+          sos.autoAssigned = false
+          await sos.save()
+          await releaseVolunteerClaim(volunteer._id)
+          shouldReleaseVolunteerClaim = false
+          claimedVolunteerId = null
+          console.error(
+            `[AutoAssign] SOS #${sequenceId} -> could not sync assignment on-chain: ${chainAssignResult.reason}`,
+          )
+        } else {
+          await sos.save()
+          shouldReleaseVolunteerClaim = false
 
-        // Mark the volunteer as unavailable so they are not double-assigned
-        await Volunteer.findByIdAndUpdate(volunteer._id, { isAvailable: false })
-
-        try {
-          await notifyAssignedVolunteer({ volunteer, sos })
-        } catch (smsErr) {
-          console.error('[AutoAssign] SMS notification error (non-fatal):', smsErr)
-        }
+          try {
+            await notifyAssignedVolunteer({ volunteer, sos })
+          } catch (smsErr) {
+            console.error('[AutoAssign] SMS notification error (non-fatal):', smsErr)
+          }
 
         autoAssigned = true
         autoAssignedInfo = {
@@ -392,20 +412,28 @@ router.post('/', async (req, res) => {
           metricSource,
         }
 
-        console.log(
-          `[AutoAssign] SOS #${sequenceId} → volunteer "${volunteer.name}" (${distanceKm.toFixed(1)} km, ${Math.round(durationMin)} min, ${metricSource})`,
-        )
-        if (!chainAssignResult.logged) {
-          console.error(
-            `[AutoAssign] SOS #${sequenceId} → assigned in MongoDB but not synced on-chain: ${chainAssignResult.reason}`,
+          console.log(
+            `[AutoAssign] SOS #${sequenceId} -> volunteer "${volunteer.name}" (${distanceKm.toFixed(1)} km, ${Math.round(durationMin)} min, ${metricSource})`,
           )
+        }
+        if (shouldReleaseVolunteerClaim && claimedVolunteerId) {
+          await releaseVolunteerClaim(claimedVolunteerId)
+          claimedVolunteerId = null
+          shouldReleaseVolunteerClaim = false
         }
       } else {
         console.log(
-          `[AutoAssign] SOS #${sequenceId} → no available volunteers within ${50} km`,
+          `[AutoAssign] SOS #${sequenceId} -> no available volunteers within ${50} km`,
         )
       }
     } catch (assignErr) {
+      if (shouldReleaseVolunteerClaim && claimedVolunteerId) {
+        try {
+          await releaseVolunteerClaim(claimedVolunteerId)
+        } catch (releaseErr) {
+          console.error('[AutoAssign] Could not release claimed volunteer (non-fatal):', releaseErr)
+        }
+      }
       // Auto-assignment failure must never break the SOS submission
       console.error('[AutoAssign] Error during auto-assignment (non-fatal):', assignErr)
     }

@@ -1,4 +1,5 @@
 const axios = require('axios')
+const { normalizePhoneToE164 } = require('../utils/phone')
 
 const hasTwilioMessagingConfig = () =>
   Boolean(
@@ -35,7 +36,8 @@ const sendAssignmentSms = async ({ to, volunteerName, sos }) => {
     }
   }
 
-  if (!to) {
+  const normalizedTo = normalizePhoneToE164(to || '')
+  if (!normalizedTo) {
     return {
       sent: false,
       reason: 'Volunteer phone number is missing.',
@@ -46,14 +48,14 @@ const sendAssignmentSms = async ({ to, volunteerName, sos }) => {
   const authToken = process.env.TWILIO_AUTH_TOKEN
   const body = buildAssignmentMessage({ sos, volunteerName })
   const params = new URLSearchParams({
-    To: to,
+    To: normalizedTo,
     Body: body,
   })
 
   if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
     params.append('MessagingServiceSid', process.env.TWILIO_MESSAGING_SERVICE_SID)
   } else {
-    params.append('From', process.env.TWILIO_FROM_NUMBER)
+    params.append('From', normalizePhoneToE164(process.env.TWILIO_FROM_NUMBER || ''))
   }
 
   try {
@@ -77,6 +79,7 @@ const sendAssignmentSms = async ({ to, volunteerName, sos }) => {
       sid: response.data?.sid || null,
     }
   } catch (error) {
+    const twilioCode = error.response?.data?.code
     const reason =
       error.response?.data?.message ||
       error.response?.data?.detail ||
@@ -85,7 +88,7 @@ const sendAssignmentSms = async ({ to, volunteerName, sos }) => {
 
     return {
       sent: false,
-      reason,
+      reason: twilioCode ? `${reason} (Twilio code ${twilioCode})` : reason,
     }
   }
 }

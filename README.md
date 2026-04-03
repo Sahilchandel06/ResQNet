@@ -1,5 +1,5 @@
-<div align="center">
-  <h1>🚨 ResQNet</h1>
+﻿<div align="center">
+  <h1>ðŸš¨ ResQNet</h1>
   <p><em>AI-Powered, Blockchain-Verified Emergency Response & Volunteer Coordination System</em></p>
   
   ![Status](https://img.shields.io/badge/Status-In%20Development-blue)
@@ -12,7 +12,7 @@
 
 ---
 
-## 📑 Table of Contents
+## ðŸ“‘ Table of Contents
 - [Project Overview](#-project-overview)
 - [Key Features](#-key-features)
 - [System Architecture](#-system-architecture)
@@ -21,7 +21,7 @@
 - [Getting Started](#-getting-started)
 - [API Endpoints](#-api-endpoints)
 - [Blockchain & Smart Contracts](#-blockchain--smart-contracts)
-- [How It Works — End to End Flow](#-how-it-works--end-to-end-flow)
+- [How It Works â€” End to End Flow](#-how-it-works--end-to-end-flow)
 - [Screenshots](#-screenshots)
 - [Contributing](#-contributing)
 - [Team](#-team)
@@ -29,7 +29,7 @@
 
 ---
 
-## 📖 Project Overview
+## ðŸ“– Project Overview
 **ResQNet** is a next-generation emergency response system that bridges the gap between distressed individuals, local volunteers, and official dispatchers. By integrating Artificial Intelligence, real-time geocoding, and Blockchain technology, ResQNet eliminates the inefficiencies of traditional manual dispatch systems.
 
 ### **Why ResQNet?**
@@ -41,55 +41,55 @@ Unlike existing 911/SOS systems that rely purely on manual operator routing, Res
 
 ---
 
-## ✨ Key Features
-- 📞 **AI-Powered Voice Call SOS:** Integration with Twilio and OpenAI Whisper transcribes emergency phone calls in real-time.
-- 🧠 **Smart NLP & ML Scoring:** Google Gemini extracts location, keywords, and summary, while local Scikit-Learn ML models score the priority and credibility of the caller.
-- 📍 **Automatic Volunteer Assignment:** Calculates the Haversine distance to find and assign the nearest active volunteer instantly upon SOS creation.
-- 🗺️ **Intelligent Geocoding:** Automatically converts rough text locations (e.g., "near the petrol pump") into precise lat/long coordinates using Nominatim fallback logic.
-- ⛓️ **Blockchain-Verified Records:** Every state change (Created, Assigned, Volunteer Reported, Completed) is permanently logged on the Ethereum Sepolia network.
-- 💰 **ETH Micro-Rewards:** Volunteers are financially incentivized for verified rescues with automatic ETH payouts executed via smart contracts.
-- 📊 **Real-Time Admin Dashboard:** A sleek, tactical map interface for admins to monitor live SOS requests, system health, and volunteer locations.
-- 🔐 **Role-Based Access Control:** Distinct interfaces and permissions for Users, Volunteers, and Admins.
-- 🛡️ **Volunteer Verification Workflow:** A multi-step verification process where volunteers report completion on the ground, and admins finalize the record to prevent fraud.
+## âœ¨ Key Features
+- ðŸ“ž **AI-Powered Voice Call SOS:** Integration with Twilio and OpenAI Whisper transcribes emergency phone calls in real-time.
+- ðŸ§  **Smart NLP & ML Scoring:** Google Gemini extracts location, keywords, and summary, while local Scikit-Learn ML models score the priority and credibility of the caller.
+- ðŸ“ **Automatic Volunteer Assignment:** Calculates the Haversine distance to find and assign the nearest active volunteer instantly upon SOS creation.
+- ðŸ—ºï¸ **Intelligent Geocoding:** Automatically converts rough text locations (e.g., "near the petrol pump") into precise lat/long coordinates using Nominatim fallback logic.
+- â›“ï¸ **Blockchain-Verified Records:** Every state change (Created, Assigned, Volunteer Reported, Completed) is permanently logged on the Ethereum Sepolia network.
+- ðŸ’° **ETH Micro-Rewards:** Volunteers are financially incentivized for verified rescues with automatic ETH payouts executed via smart contracts.
+- ðŸ“Š **Real-Time Admin Dashboard:** A sleek, tactical map interface for admins to monitor live SOS requests, system health, and volunteer locations.
+- ðŸ” **Role-Based Access Control:** Distinct interfaces and permissions for Users, Volunteers, and Admins.
+- ðŸ›¡ï¸ **Volunteer Verification Workflow:** A multi-step verification process where volunteers report completion on the ground, and admins finalize the record to prevent fraud.
 
 ---
 
-## 🏗 System Architecture
+## ðŸ— System Architecture
 
 ```text
   [Distressed User] 
-        │
+        â”‚
    (Phone Call)
-        ▼
- ┌──────────────────────────────────────┐
- │         twilio + resqnet-call        │
- │  (FastAPI, Whisper, Gemini, ML)      │
- └──────────────────┬───────────────────┘
-                    │ (JSON Payload: Priority, Location, Transcript)
-                    ▼
- ┌──────────────────────────────────────┐       ┌────────────────────┐
- │             Backend API              │ ────► │ MongoDB (Mongoose) │
- │     (Express.js, Ethers.js, Node)    │       │ (Users, SOS, Vols) │
- └─────────┬──────────────────┬─────────┘       └────────────────────┘
-           │                  │
-    (Auto-Assigns Nearest)    │ (Writes Tx)
-           ▼                  ▼
- ┌──────────────────┐ ┌──────────────────────────────────────────┐
- │   path Engine    │ │        Smart Contract (Ethereum)         │
- │     (OSRM)       │ │      (Logging, ETH Mcro-Rewards)         │
- └──────────────────┘ └──────────────────────────────────────────┘
-           ▲
-           │ (WebSocket / API Polling)
-           ▼
- ┌──────────────────────────────────────┐
- │        new-frontend (React)          │
- │   (Admin Dashboard, Tactical Map)    │
- └──────────────────────────────────────┘
+        â–¼
+ â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+ â”‚         twilio + resqnet-call        â”‚
+ â”‚  (FastAPI, Whisper, Gemini, ML)      â”‚
+ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                    â”‚ (JSON Payload: Priority, Location, Transcript)
+                    â–¼
+ â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”       â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+ â”‚             Backend API              â”‚ â”€â”€â”€â”€â–º â”‚ MongoDB (Mongoose) â”‚
+ â”‚     (Express.js, Ethers.js, Node)    â”‚       â”‚ (Users, SOS, Vols) â”‚
+ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜       â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+           â”‚                  â”‚
+    (Auto-Assigns Nearest)    â”‚ (Writes Tx)
+           â–¼                  â–¼
+ â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+ â”‚   path Engine    â”‚ â”‚        Smart Contract (Ethereum)         â”‚
+ â”‚     (OSRM)       â”‚ â”‚      (Logging, ETH Mcro-Rewards)         â”‚
+ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+           â–²
+           â”‚ (WebSocket / API Polling)
+           â–¼
+ â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+ â”‚        new-frontend (React)          â”‚
+ â”‚   (Admin Dashboard, Tactical Map)    â”‚
+ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ---
 
-## 💻 Tech Stack
+## ðŸ’» Tech Stack
 
 | Category | Technology | Purpose |
 | :--- | :--- | :--- |
@@ -103,23 +103,23 @@ Unlike existing 911/SOS systems that rely purely on manual operator routing, Res
 
 ---
 
-## 📁 Project Structure
+## ðŸ“ Project Structure
 
 ```text
 GlyphCoders/
-├── backend/            # Express.js API, MongoDB models, assignment logic, blockchain sync
-├── contracts/          # Solidity smart contracts (ResQNetProtocol.sol)
-├── new-frontend/       # React + Vite application (Admin Dashboard, SOS Feed, Tactical Map)
-├── resqnet-call/       # Python FastAPI service for Twilio call handling & ML/AI inference
-├── scripts/            # Hardhat deployment and verification scripts (deploy.js, verify.js)
-├── test/               # Smart contract test suites (TBD)
-├── hardhat.config.js   # Configuration for Ethereum network and contract deployment
-└── package.json        # Main project manifest with cross-workspace npm scripts
+â”œâ”€â”€ backend/            # Express.js API, MongoDB models, assignment logic, blockchain sync
+â”œâ”€â”€ contracts/          # Solidity smart contracts (ResQNetProtocol.sol)
+â”œâ”€â”€ new-frontend/       # React + Vite application (Admin Dashboard, SOS Feed, Tactical Map)
+â”œâ”€â”€ resqnet-call/       # Python FastAPI service for Twilio call handling & ML/AI inference
+â”œâ”€â”€ scripts/            # Hardhat deployment and verification scripts (deploy.js, verify.js)
+â”œâ”€â”€ test/               # Smart contract test suites (TBD)
+â”œâ”€â”€ hardhat.config.js   # Configuration for Ethereum network and contract deployment
+â””â”€â”€ package.json        # Main project manifest with cross-workspace npm scripts
 ```
 
 ---
 
-## 🚀 Getting Started
+## ðŸš€ Getting Started
 
 ### Prerequisites
 - Node.js (v18+)
@@ -220,7 +220,7 @@ npx hardhat run scripts/deploy.js --network sepolia
 
 ---
 
-## 🔌 API Endpoints
+## ðŸ”Œ API Endpoints
 *Note: A complete Postman collection is TBD. Here are the core exposed endpoints handled by the Express backend.*
 
 | Method | Route | Description | Auth Required |
@@ -239,7 +239,7 @@ npx hardhat run scripts/deploy.js --network sepolia
 
 ---
 
-## ⛓️ Blockchain & Smart Contracts
+## â›“ï¸ Blockchain & Smart Contracts
 
 The `ResQNetProtocol.sol` smart contract acts as an immutable ledger and escrow for the system.
 - **Auditable Lifecycle:** When an SOS is created, assigned, updated by a volunteer, and finalized, a transaction is written to the blockchain containing a hash of the operation.
@@ -249,7 +249,7 @@ The `ResQNetProtocol.sol` smart contract acts as an immutable ledger and escrow 
 
 ---
 
-## 🔄 How It Works — End to End Flow
+## ðŸ”„ How It Works â€” End to End Flow
 
 1. **The Emergency Occurs:** A user urgently dials the Twilio ResQNet number. 
 2. **AI Processing:** The `resqnet-call` engine engages. The caller speaks, Whisper transcribes the speech, and Gemini identifies the situation (e.g., "Fire at Alkapuri"). The local ML model cross-checks the transcript to assign a high 'Credibility' and 'Critical' priority score.
@@ -259,9 +259,7 @@ The `ResQNetProtocol.sol` smart contract acts as an immutable ledger and escrow 
 6. **Resolution:** The volunteer arrives at the scene, resolves the issue, and reports "Completed" via their user interface.
 7. **Settlement:** The Admin reviews the volunteer's field notes on the Tactical Dashboard and clicks "Finalize Completed". The smart contract increments the Volunteer's reputation and transfers ETH micro-rewards directly to their MetaMask wallet. The volunteer is released back into the available pool.
 
----
-
-## 🖼 Screenshots
+## ðŸ–¼ Screenshots
 
 *Landing Page with Project Overview*
 ![Landing Page](screenshots/landing.png)
@@ -274,7 +272,7 @@ The `ResQNetProtocol.sol` smart contract acts as an immutable ledger and escrow 
 
 ---
 
-## 🤝 Contributing
+## ðŸ¤ Contributing
 Contributions make the open-source community an amazing place to learn, inspire, and create.
 1. Fork the Project
 2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
@@ -284,7 +282,7 @@ Contributions make the open-source community an amazing place to learn, inspire,
 
 ---
 
-## 👥 Team
+## ðŸ‘¥ Team
 
 | Name | Role | GitHub |
 | :--- | :--- | :--- |
@@ -294,5 +292,5 @@ Contributions make the open-source community an amazing place to learn, inspire,
 
 ---
 
-## 📄 License
+## ðŸ“„ License
 This project is licensed under the MIT License - see the `LICENSE` (or `package.json`) file for details.
